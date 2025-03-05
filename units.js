@@ -3,6 +3,7 @@ import { mapWidth, mapHeight, map, visibility, exploredMap } from './map.js';
 import { camera } from './camera.js';
 import { resources, resourceTypes } from './map.js';
 import { updateFog } from './fog.js';
+import { buildings } from './buildings.js';
 
 let units = [
     { 
@@ -391,9 +392,9 @@ function updateUnitPositions() {
         
         // Проверяем сбор ресурсов
         if (visibility[unit.y][unit.x]) {
-            const resource = resources.find(r => r.x === unit.x && r.y === unit.y);
+        const resource = resources.find(r => r.x === unit.x && r.y === unit.y);
             if (resource && unit.player) {
-                collectResource(unitIndex, resources.indexOf(resource));
+            collectResource(unitIndex, resources.indexOf(resource));
             }
         }
     });
@@ -436,157 +437,200 @@ function collectResource(unitIndex, resourceIndex) {
     }
 }
 
-// Обновляем функцию deliverResources
-function deliverResources(unit) {
-    if (unit.inventory.amount > 0 && unit.inventory.resource) {
-        console.log('Доставка ресурсов на базу:', unit.inventory);
-
-        if (unit.inventory.resource === 'gold') {
-            playerResources[unit.player].gold += unit.inventory.amount;
-        } else if (unit.inventory.resource === 'wood') {
-            playerResources[unit.player].wood += unit.inventory.amount;
+function checkCollision(x, y, excludeUnitIndex) {
+    for (let i = 0; i < units.length; i++) {
+        if (i !== excludeUnitIndex && units[i].x === x && units[i].y === y) {
+            return true;
         }
+    }
+    return false;
+}
 
-        console.log(`Добавлено ${unit.inventory.amount} ${unit.inventory.resource}`);
+function isNearBase(x, y) {
+    // Проверяем все соседние клетки вокруг базы (включая диагональные)
+    const basePositions = [
+        {x: 0, y: 0},  // Позиция базы
+        {x: 1, y: 0},  // Справа
+        {x: 0, y: 1},  // Снизу
+        {x: 1, y: 1}   // Диагональ
+    ];
 
+    return basePositions.some(pos => 
+        Math.abs(x - pos.x) <= 1 && Math.abs(y - pos.y) <= 1
+    );
+}
+
+function deliverResources(unit) {
+    if (!isNearBase(unit.x, unit.y)) {
+        moveUnitNearBase(units.indexOf(unit));
+        return false;
+    }
+
+    // Если юнит рядом с базой, разгружаем ресурсы
+    if (unit.inventory.resource && unit.inventory.amount > 0) {
+        playerResources[unit.player][unit.inventory.resource] += unit.inventory.amount;
         unit.inventory.amount = 0;
         unit.inventory.resource = null;
         unit.isReturningToBase = false;
 
-        // Возвращаемся к последнему ресурсу, если он еще существует
-        const lastResource = resources.find(r => 
-            r.x === unit.lastResourceTarget?.x && 
-            r.y === unit.lastResourceTarget?.y && 
-            r.amount > 0
-        );
-
-        if (lastResource) {
-            console.log('Возвращаемся к ресурсу:', lastResource);
-            unit.targetResource = lastResource;
-            moveUnit(units.indexOf(unit), lastResource.x, lastResource.y);
-        } else {
-            console.log('Ресурс исчерпан, остаемся у базы');
-            moveUnitNearBase(units.indexOf(unit));
+        // Если есть последний ресурс, к которому юнит шёл - возвращаемся к нему
+        if (unit.lastResourceTarget) {
+            const resource = resources.find(r => 
+                r.x === unit.lastResourceTarget.x && 
+                r.y === unit.lastResourceTarget.y &&
+                r.amount > 0
+            );
+            if (resource) {
+                sendWorkerToResource(unit, resource);
+            } else {
+                unit.lastResourceTarget = null;
+            }
         }
+        return true;
     }
+    return false;
 }
 
-// Добавляем новую функцию для поиска свободного места рядом с базой
 function moveUnitNearBase(unitIndex) {
-    const baseX = 2;
-    const baseY = 2;
-    const positions = [
-        {x: baseX-1, y: baseY-1}, {x: baseX, y: baseY-1}, {x: baseX+1, y: baseY-1},
-        {x: baseX-1, y: baseY}, {x: baseX+1, y: baseY},
-        {x: baseX-1, y: baseY+1}, {x: baseX, y: baseY+1}, {x: baseX+1, y: baseY+1}
+    const unit = units[unitIndex];
+    // Пытаемся найти свободную клетку рядом с базой
+    const basePositions = [
+        {x: 1, y: 0},  // Справа
+        {x: 0, y: 1},  // Снизу
+        {x: 1, y: 1}   // Диагональ
     ];
 
-    // Фильтруем позиции, исключая занятые и непроходимые
-    const availablePositions = positions.filter(pos => {
-        // Проверяем границы карты и тип местности
-        if (pos.x < 0 || pos.x >= mapWidth || pos.y < 0 || pos.y >= mapHeight || 
-            map[pos.y][pos.x] === 'water') {
-            return false;
+    for (const pos of basePositions) {
+        if (!checkCollision(pos.x, pos.y, unitIndex)) {
+            moveUnit(unitIndex, pos.x, pos.y);
+            return true;
         }
-        
-        // Проверяем, не занята ли клетка другим юнитом
-        return !units.some(u => u.x === pos.x && u.y === pos.y);
-    });
-
-    if (availablePositions.length > 0) {
-        // Выбираем случайную свободную позицию
-        const pos = availablePositions[Math.floor(Math.random() * availablePositions.length)];
-        moveUnit(unitIndex, pos.x, pos.y);
     }
+    return false;
 }
 
-function createWorker(player, x, y) {
-    units.push({
+// Массив для хранения эффектов спавна
+let spawnEffects = [];
+
+// Улучшенная анимация спавна
+function showSpawnAnimation(x, y) {
+    const spawnEffect = {
         x,
         y,
-        player,
-        visionRange: 3,
-        type: 'worker',
-        selected: false,
-        inventory: { resource: null, amount: 0 },
-        maxInventory: 100,
-        lastVisibilityUpdateX: x,
-        lastVisibilityUpdateY: y,
-        targetResource: null,
-        lastResourceTarget: null,
-        isReturningToBase: false,
-        currentX: undefined,
-        currentY: undefined,
-        lastCollectionTime: null
-    });
+        progress: 0,
+        maxProgress: 60,
+        particles: Array.from({length: 8}, (_, i) => ({
+            angle: (i * Math.PI * 2) / 8,
+            radius: 0
+        }))
+    };
+    spawnEffects.push(spawnEffect);
 }
 
-// Добавляем функцию проверки коллизии
-function checkCollision(x, y, excludeUnitIndex) {
-    return units.some((unit, index) => 
-        index !== excludeUnitIndex && 
-        Math.abs(unit.x - x) < 1 && 
-        Math.abs(unit.y - y) < 1
+// Проверка близости к базе
+function isNearBaseForSpawn(x, y) {
+    // Проверяем только клетки вокруг базы (радиус 2)
+    const baseX = 0;
+    const baseY = 0;
+    const maxDistance = 2;
+    
+    return Math.abs(x - baseX) <= maxDistance && 
+           Math.abs(y - baseY) <= maxDistance;
+}
+
+// Проверка наличия казармы
+function hasBarracks(player) {
+    return buildings.some(building => 
+        building.player === player && 
+        building.type === 'barracks'
     );
 }
 
-// Обновляем функцию moveUnit
-function moveUnit(unitIndex, newX, newY) {
-    if (newX >= 0 && newX < mapWidth && newY >= 0 && newY < mapHeight && 
-        map[newY][newX] !== 'water') {
-        
-        const unit = units[unitIndex];
-        
-        // Сбрасываем текущий путь
-        unit.path = null;
-        unit.currentX = unit.x;
-        unit.currentY = unit.y;
-        
-        // Если это возвращение на базу, не ищем альтернативную позицию
-        if (unit.isReturningToBase && newX === 2 && newY === 2) {
-            unit.targetX = newX;
-            unit.targetY = newY;
-            startUnitAnimation();
-            return;
-        }
-        
-        // Если это прямое перемещение (не через путь)
-        // Ищем ближайшую свободную позицию
-        let found = false;
-        let radius = 0;
-        const maxRadius = 3; // Максимальный радиус поиска
-
-        while (!found && radius <= maxRadius) {
-            for (let dy = -radius; dy <= radius; dy++) {
-                for (let dx = -radius; dx <= radius; dx++) {
-                    if (dx === 0 && dy === 0) continue;
-                    
-                    const testX = newX + dx;
-                    const testY = newY + dy;
-                    
-                    if (testX >= 0 && testX < mapWidth && 
-                        testY >= 0 && testY < mapHeight && 
-                        map[testY][testX] !== 'water' &&
-                        !checkCollision(testX, testY, unitIndex)) {
-                        
-                        newX = testX;
-                        newY = testY;
-                        found = true;
-                        break;
-                    }
-                }
-                if (found) break;
-            }
-            radius++;
-        }
-
-        unit.targetX = newX;
-        unit.targetY = newY;
-        startUnitAnimation();
+function createWorker(player, x, y) {
+    // Проверяем близость к базе для спавна
+    if (!isNearBaseForSpawn(x, y)) {
+        console.log('Рабочих можно создавать только рядом с базой');
+        return null;
     }
+
+    // Проверяем видимость
+    if (!visibility[y][x]) {
+        console.log('Нельзя создавать юнитов в тумане войны');
+        return null;
+    }
+
+    // Создаем юнита с задержкой
+    return new Promise((resolve) => {
+        showSpawnAnimation(x, y);
+
+        setTimeout(() => {
+            const unit = {
+                x,
+                y,
+                player,
+                visionRange: 3,
+                type: 'worker',
+                selected: false,
+                inventory: { resource: null, amount: 0 },
+                maxInventory: 100,
+                lastVisibilityUpdateX: x,
+                lastVisibilityUpdateY: y,
+                targetResource: null,
+                lastResourceTarget: null,
+                isReturningToBase: false,
+                currentX: undefined,
+                currentY: undefined,
+                lastCollectionTime: null
+            };
+            units.push(unit);
+            resolve(unit);
+        }, 3000);
+    });
 }
 
-// Обновите функцию drawUnits для отрисовки сборщика с SVG
+// Функция создания пехотинца
+function createInfantry(player, x, y) {
+    // Проверяем наличие казармы (кроме первого пехотинца)
+    if (units.some(u => u.type === 'infantry' && u.player === player) && !hasBarracks(player)) {
+        console.log('Для создания пехотинца необходима казарма');
+        return null;
+    }
+
+    // Проверяем близость к базе для спавна
+    if (!isNearBaseForSpawn(x, y)) {
+        console.log('Пехотинцев можно создавать только рядом с базой');
+        return null;
+    }
+
+    // Проверяем видимость
+    if (!visibility[y][x]) {
+        console.log('Нельзя создавать юнитов в тумане войны');
+        return null;
+    }
+
+    return new Promise((resolve) => {
+        showSpawnAnimation(x, y);
+
+        setTimeout(() => {
+            const unit = {
+                x,
+                y,
+                player,
+                visionRange: 4,
+                type: 'infantry',
+                selected: false,
+                inventory: { resource: null, amount: 0 },
+                maxInventory: 0,
+                lastVisibilityUpdateX: x,
+                lastVisibilityUpdateY: y
+            };
+            units.push(unit);
+            resolve(unit);
+        }, 3000);
+    });
+}
+
+// Обновляем функцию drawUnits для отображения улучшенной анимации спавна
 function drawUnits() {
     const visibleWidth = Math.floor(camera.width * camera.zoom);
     const visibleHeight = Math.floor(camera.height * camera.zoom);
@@ -599,6 +643,36 @@ function drawUnits() {
     ctx.save();
     ctx.scale(camera.zoom, camera.zoom);
 
+    // Отрисовка эффектов спавна
+    spawnEffects.forEach((effect, index) => {
+        const x = (effect.x - camera.x) * 32;
+        const y = (effect.y - camera.y) * 32;
+        
+        // Рисуем частицы
+        effect.particles.forEach(particle => {
+            particle.radius = (effect.progress / effect.maxProgress) * 20;
+            const particleX = x + 16 + Math.cos(particle.angle) * particle.radius;
+            const particleY = y + 16 + Math.sin(particle.angle) * particle.radius;
+            
+            ctx.beginPath();
+            ctx.arc(particleX, particleY, 2, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 255, 255, ${1 - effect.progress / effect.maxProgress})`;
+            ctx.fill();
+        });
+        
+        // Рисуем центральный круг
+        ctx.beginPath();
+        ctx.arc(x + 16, y + 16, (1 - effect.progress / effect.maxProgress) * 16, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0, 255, 255, ${0.5 - effect.progress / effect.maxProgress / 2})`;
+        ctx.fill();
+        
+        effect.progress++;
+        if (effect.progress >= effect.maxProgress) {
+            spawnEffects.splice(index, 1);
+        }
+    });
+
+    // Отрисовка юнитов
     units.forEach(unit => {
         if (unit.x >= startX && unit.x < endX && unit.y >= startY && unit.y < endY) {
             const color = unit.player === 1 ? '#0000FF' : '#FF0000';
@@ -627,13 +701,13 @@ function drawUnits() {
                     break;
                 case 'infantry':
                     // Рисуем пехотинца как треугольник
-                    ctx.beginPath();
+                ctx.beginPath();
                     ctx.moveTo(x + 16, y + 8);
                     ctx.lineTo(x + 24, y + 24);
                     ctx.lineTo(x + 8, y + 24);
                     ctx.closePath();
                     ctx.fillStyle = color;
-                    ctx.fill();
+                ctx.fill();
                     break;
                 default:
                     // Для остальных юнитов используем квадрат
@@ -642,14 +716,6 @@ function drawUnits() {
             }
         }
     });
-
-    // Отрисовка предварительного размещения юнита
-    if (window.previewUnit) {
-        const x = (Math.floor(window.previewUnit.x / 32) * 32 - camera.x * 32);
-        const y = (Math.floor(window.previewUnit.y / 32) * 32 - camera.y * 32);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.fillRect(x, y, 32, 32);
-    }
 
     ctx.restore();
 }
@@ -670,7 +736,7 @@ function selectUnit(x, y) {
         if (unit.x === x && unit.y === y && unit.player === 1) { // Только наши юниты (игрок 1)
             unit.selected = true;
             selectedUnits.push(unit);
-        }
+            }
     });
 }
 
@@ -691,10 +757,68 @@ function sendWorkerToResource(unit, resource) {
     }
 }
 
+// Функция перемещения юнита
+function moveUnit(unitIndex, newX, newY) {
+    if (newX >= 0 && newX < mapWidth && newY >= 0 && newY < mapHeight && 
+        map[newY][newX] !== 'water') {
+        
+        const unit = units[unitIndex];
+        
+        // Сбрасываем текущий путь
+        unit.path = null;
+        unit.currentX = unit.x;
+        unit.currentY = unit.y;
+        
+        // Если юнит возвращается на базу, позволяем ему подойти ближе
+        if (unit.isReturningToBase) {
+            unit.targetX = newX;
+            unit.targetY = newY;
+            startUnitAnimation();
+            return;
+        }
+        
+        // Для обычного движения ищем свободную позицию
+        let found = false;
+        let radius = 0;
+        const maxRadius = 3;
+
+        while (!found && radius <= maxRadius) {
+            for (let dy = -radius; dy <= radius; dy++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                    if (dx === 0 && dy === 0) continue;
+                    
+                    const testX = newX + dx;
+                    const testY = newY + dy;
+                    
+                    if (testX >= 0 && testX < mapWidth && 
+                        testY >= 0 && testY < mapHeight && 
+                        map[testY][testX] !== 'water' &&
+                        !checkCollision(testX, testY, unitIndex)) {
+                        
+                        unit.targetX = testX;
+                        unit.targetY = testY;
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) break;
+            }
+            radius++;
+        }
+
+        if (!found) {
+            unit.targetX = unit.x;
+            unit.targetY = unit.y;
+        }
+        
+        startUnitAnimation();
+    }
+}
+
 // Экспортируем все необходимые функции и данные
 export { 
     units, unitCount, moveUnit, drawUnits, updateVisibility, 
     startUnitAnimation, drawPlayerResources, playerResources, 
-    createWorker, selectUnit, deselectAllUnits, selectedUnits,
+    createWorker, createInfantry, selectUnit, deselectAllUnits, selectedUnits,
     sendWorkerToResource 
 };
