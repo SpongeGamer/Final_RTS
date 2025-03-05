@@ -256,38 +256,34 @@ function setupCommandButtons() {
                 draw();
             }
         } else if (e.button === 2) { // ПКМ
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-            const targetX = Math.floor((mouseX / camera.zoom + camera.x * tileSize) / tileSize);
-            const targetY = Math.floor((mouseY / camera.zoom + camera.y * tileSize) / tileSize);
-
-            // Проверяем, есть ли ресурс в точке назначения
-            const targetResource = resources.find(r => r.x === targetX && r.y === targetY);
-            if (selectedUnits.length > 0) {
-                if (targetResource) {
-                    console.log('Отправляем рабочих к ресурсу:', targetResource);
-                    // Если кликнули по ресурсу и есть рабочие - отправляем их собирать
-                    selectedUnits.forEach(unit => {
-                        if (unit.type === 'worker') {
-                            moveUnit(units.indexOf(unit), targetX, targetY);
-                            unit.targetResource = targetResource;
-                            unit.lastResourceTarget = targetResource;
-                            console.log('Рабочий отправлен к ресурсу:', unit);
-                        }
-                    });
-                } else if (map[targetY][targetX] !== 'water') {
-                    // Если кликнули по проходимой местности - отправляем юнитов туда
-                    selectedUnits.forEach(unit => {
-                        moveUnit(units.indexOf(unit), targetX, targetY);
-                        // Сбрасываем цели сбора ресурсов при обычном перемещении
-                        unit.targetResource = null;
-                        unit.lastResourceTarget = null;
-                    });
-                }
-            }
+            handleRightClick(e);
         }
     });
+
+    // Добавляем функцию обработки правого клика
+    function handleRightClick(event) {
+        const rect = canvas.getBoundingClientRect();
+        const clickX = Math.floor((event.clientX - rect.left) / 32 / camera.zoom + camera.x);
+        const clickY = Math.floor((event.clientY - rect.top) / 32 / camera.zoom + camera.y);
+
+        const resource = resources.find(r => r.x === clickX && r.y === clickY);
+        if (resource && selectedUnits.length > 0) {
+            selectedUnits.forEach(unit => {
+                if (unit.type === 'worker') {
+                    sendWorkerToResource(unit, resource);
+                }
+            });
+        } else if (map[clickY][clickX] !== 'water' && selectedUnits.length > 0) {
+            // Если клик не по ресурсу и не по воде - просто перемещаем юнитов
+            selectedUnits.forEach(unit => {
+                moveUnit(units.indexOf(unit), clickX, clickY);
+                // Сбрасываем цели сбора ресурсов при обычном перемещении
+                unit.targetResource = null;
+                unit.lastResourceTarget = null;
+                unit.isReturningToBase = false;
+            });
+        }
+    }
 
     // Отключаем контекстное меню браузера
     canvas.addEventListener('contextmenu', (e) => {

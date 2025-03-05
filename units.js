@@ -42,64 +42,83 @@ const MOVEMENT_THRESHOLD = 0.01;
 
 let isAnimating = true; // Изменяем на true по умолчанию
 
+// Добавляем переменную для отслеживания времени последнего сбора ресурсов
+const RESOURCE_COLLECTION_INTERVAL = 1000; // 1 секунда между сбором ресурсов
+
 function startUnitAnimation() {
     if (!isAnimating) return;
 
     units.forEach((unit, unitIndex) => {
-        // Проверяем достижение базы для рабочих с ресурсами
-        if (unit.type === 'worker' && unit.isReturningToBase && 
-            unit.inventory.amount > 0 && unit.inventory.resource) {
-            
-            // Проверяем, находится ли юнит рядом с базой (расстояние <= 1.5 клетки)
+        let shouldContinue = true;
+
+        // Рабочий достиг базы с ресурсами
+        if (unit.type === 'worker' && unit.isReturningToBase && unit.inventory.amount > 0) {
             const distanceToBase = Math.sqrt(Math.pow(unit.x - 2, 2) + Math.pow(unit.y - 2, 2));
-            if (distanceToBase <= 1.5) {
-                console.log('Рабочий достиг базы и готов разгрузиться:', unit);
+            if (distanceToBase <= 0.5) {
+                console.log('Рабочий достиг базы:', unit);
                 deliverResources(unit);
-                return;
+                shouldContinue = false;
             }
         }
 
-        if (unit.targetX !== undefined && unit.targetY !== undefined) {
+        // Рабочий около ресурса
+        if (shouldContinue && unit.type === 'worker' && !unit.isReturningToBase && unit.targetResource) {
+            const distanceToResource = Math.sqrt(
+                Math.pow(unit.x - unit.targetResource.x, 2) + 
+                Math.pow(unit.y - unit.targetResource.y, 2)
+            );
+            
+            // Если рабочий достаточно близко к ресурсу
+            if (distanceToResource <= 1.5) {
+                const resourceIndex = resources.indexOf(unit.targetResource);
+                if (resourceIndex !== -1) {
+                    collectResource(unitIndex, resourceIndex);
+                    // Останавливаем движение, пока собираем ресурсы
+                    unit.targetX = unit.x;
+                    unit.targetY = unit.y;
+                    shouldContinue = false;
+                }
+            }
+        }
+
+        // Движение к цели
+        if (shouldContinue && unit.targetX !== undefined && unit.targetY !== undefined) {
             if (!unit.path || unit.path.length === 0) {
                 unit.path = findPath(Math.round(unit.x), Math.round(unit.y), unit.targetX, unit.targetY);
-                
                 if (!unit.path) {
+                    console.log('Путь не найден, сбрасываем цель');
                     unit.targetX = undefined;
                     unit.targetY = undefined;
                     return;
                 }
             }
-            
+
             if (unit.path && unit.path.length > 0) {
                 const nextStep = unit.path[0];
-                
-                // Проверяем коллизию перед движением
+
                 if (checkCollision(nextStep.x, nextStep.y, unitIndex)) {
-                    // Если путь заблокирован, пересчитываем маршрут
+                    console.log('Путь заблокирован, пересчитываем');
                     unit.path = null;
                     return;
                 }
-                
+
                 if (unit.currentX === undefined) {
                     unit.currentX = unit.x;
                     unit.currentY = unit.y;
                 }
-                
+
                 const dx = nextStep.x - unit.currentX;
                 const dy = nextStep.y - unit.currentY;
                 const distance = Math.sqrt(dx * dx + dy * dy);
-                
+
                 if (distance > MOVEMENT_THRESHOLD) {
-                    const moveDistance = UNIT_SPEED / 60; // 60 FPS
+                    const moveDistance = UNIT_SPEED / 60;
                     const moveRatio = Math.min(moveDistance / distance, 1);
-                    
                     unit.currentX += dx * moveRatio;
                     unit.currentY += dy * moveRatio;
-                    
                     unit.x = Math.round(unit.currentX);
                     unit.y = Math.round(unit.currentY);
-                    
-                    // Обновляем видимость при значительном перемещении
+
                     if (Math.abs(unit.x - unit.lastVisibilityUpdateX) > 0.5 || 
                         Math.abs(unit.y - unit.lastVisibilityUpdateY) > 0.5) {
                         updateVisibility();
@@ -112,26 +131,12 @@ function startUnitAnimation() {
                     unit.x = nextStep.x;
                     unit.y = nextStep.y;
                     unit.path.shift();
-                    
+
                     if (unit.path.length === 0) {
-                        // Достигли конечной точки
-                        if (unit.x === unit.targetX && unit.y === unit.targetY) {
-                            // Если это точка с ресурсом, начинаем сбор
-                            if (unit.targetResource && 
-                                unit.x === unit.targetResource.x && 
-                                unit.y === unit.targetResource.y) {
-                                const resourceIndex = resources.indexOf(unit.targetResource);
-                                if (resourceIndex !== -1) {
-                                    collectResource(unitIndex, resourceIndex);
-                                }
-                            }
-                            unit.targetX = undefined;
-                            unit.targetY = undefined;
-                            unit.currentX = undefined;
-                            unit.currentY = undefined;
-                        } else {
-                            unit.path = findPath(unit.x, unit.y, unit.targetX, unit.targetY);
-                        }
+                        unit.targetX = undefined;
+                        unit.targetY = undefined;
+                        unit.currentX = undefined;
+                        unit.currentY = undefined;
                     }
                 }
             }
@@ -398,78 +403,70 @@ function updateUnitPositions() {
 function collectResource(unitIndex, resourceIndex) {
     const unit = units[unitIndex];
     const resource = resources[resourceIndex];
-    
-    console.log('Начинаем сбор ресурса:', resource);
-    
-    // Собираем ресурс только если юнит специально отправлен на сбор
+
     if (unit.type === 'worker' && resource && resource.amount > 0 && !unit.isReturningToBase) {
-        console.log('Собираем ресурс, количество до:', resource.amount);
-        
-        // Собираем ресурс
-        const amountToCollect = Math.min(10, resource.amount);
-        resource.amount -= amountToCollect;
-        unit.inventory.resource = resource.type;
-        unit.inventory.amount = amountToCollect;
-        console.log('Собрано ресурсов:', amountToCollect, 'осталось:', resource.amount);
+        // Проверяем, прошло ли достаточно времени с последнего сбора
+        const currentTime = Date.now();
+        if (!unit.lastCollectionTime || currentTime - unit.lastCollectionTime >= RESOURCE_COLLECTION_INTERVAL) {
+            // Добавляем 1 единицу ресурса в инвентарь
+            const amountToCollect = Math.min(1, resource.amount);
+            resource.amount -= amountToCollect;
+            unit.inventory.resource = resource.type;
+            unit.inventory.amount += amountToCollect;
+            unit.lastCollectionTime = currentTime;
 
-        // Если ресурс истощен, удаляем его
-        if (resource.amount <= 0) {
-            console.log('Ресурс истощен, удаляем');
-            resources.splice(resourceIndex, 1);
-            unit.lastResourceTarget = null;
+            console.log('Собрано:', amountToCollect, 'всего в инвентаре:', unit.inventory.amount);
+
+            // Если ресурс исчерпан
+            if (resource.amount <= 0) {
+                console.log('Ресурс исчерпан');
+                resources.splice(resourceIndex, 1);
+                unit.targetResource = null;
+                unit.lastResourceTarget = null;
+            }
+
+            // Если инвентарь заполнен (достиг 10), возвращаемся на базу
+            if (unit.inventory.amount >= 10) {
+                unit.isReturningToBase = true;
+                unit.targetResource = null;
+                moveUnit(unitIndex, 2, 2); // База на координатах (2, 2)
+                console.log('Инвентарь полон (10), возвращаемся на базу');
+            }
         }
-
-        // Отправляем к базе
-        unit.targetResource = null;
-        unit.isReturningToBase = true;
-        console.log('Рабочий возвращается на базу с ресурсами');
-        moveUnit(unitIndex, 2, 2);
     }
 }
 
 // Обновляем функцию deliverResources
 function deliverResources(unit) {
     if (unit.inventory.amount > 0 && unit.inventory.resource) {
-        console.log('Доставляем ресурсы на базу:', unit.inventory);
-        
-        // Добавляем ресурсы игроку
+        console.log('Доставка ресурсов на базу:', unit.inventory);
+
         if (unit.inventory.resource === 'gold') {
             playerResources[unit.player].gold += unit.inventory.amount;
-            console.log('Добавлено золота:', unit.inventory.amount);
         } else if (unit.inventory.resource === 'wood') {
             playerResources[unit.player].wood += unit.inventory.amount;
-            console.log('Добавлено дерева:', unit.inventory.amount);
         }
 
-        // Очищаем инвентарь
+        console.log(`Добавлено ${unit.inventory.amount} ${unit.inventory.resource}`);
+
         unit.inventory.amount = 0;
         unit.inventory.resource = null;
         unit.isReturningToBase = false;
 
-        // Проверяем, существует ли ресурс в клетке и есть ли в нём что собирать
-        const resourceAtLastLocation = resources.find(r => 
+        // Возвращаемся к последнему ресурсу, если он еще существует
+        const lastResource = resources.find(r => 
             r.x === unit.lastResourceTarget?.x && 
             r.y === unit.lastResourceTarget?.y && 
             r.amount > 0
         );
 
-        if (resourceAtLastLocation) {
-            console.log('Возвращаемся к ресурсу:', resourceAtLastLocation);
-            unit.targetResource = resourceAtLastLocation;
-            const unitIndex = units.indexOf(unit);
-            if (unitIndex !== -1) {
-                moveUnit(unitIndex, resourceAtLastLocation.x, resourceAtLastLocation.y);
-            }
+        if (lastResource) {
+            console.log('Возвращаемся к ресурсу:', lastResource);
+            unit.targetResource = lastResource;
+            moveUnit(units.indexOf(unit), lastResource.x, lastResource.y);
         } else {
-            // Если ресурс истощен, остаемся на базе
-            console.log('Ресурс истощен или отсутствует, ожидаем на базе');
-            unit.lastResourceTarget = null;
-            unit.targetResource = null;
-            // Находим свободную клетку рядом с базой
-            const unitIndex = units.indexOf(unit);
-            if (unitIndex !== -1) {
-                moveUnitNearBase(unitIndex);
-            }
+            console.log('Ресурс исчерпан, остаемся у базы');
+            moveUnitNearBase(units.indexOf(unit));
         }
     }
 }
@@ -519,7 +516,8 @@ function createWorker(player, x, y) {
         lastResourceTarget: null,
         isReturningToBase: false,
         currentX: undefined,
-        currentY: undefined
+        currentY: undefined,
+        lastCollectionTime: null
     });
 }
 
@@ -539,36 +537,47 @@ function moveUnit(unitIndex, newX, newY) {
         
         const unit = units[unitIndex];
         
+        // Сбрасываем текущий путь
+        unit.path = null;
+        unit.currentX = unit.x;
+        unit.currentY = unit.y;
+        
+        // Если это возвращение на базу, не ищем альтернативную позицию
+        if (unit.isReturningToBase && newX === 2 && newY === 2) {
+            unit.targetX = newX;
+            unit.targetY = newY;
+            startUnitAnimation();
+            return;
+        }
+        
         // Если это прямое перемещение (не через путь)
-        if (!unit.path) {
-            // Ищем ближайшую свободную позицию
-            let found = false;
-            let radius = 0;
-            const maxRadius = 3; // Максимальный радиус поиска
+        // Ищем ближайшую свободную позицию
+        let found = false;
+        let radius = 0;
+        const maxRadius = 3; // Максимальный радиус поиска
 
-            while (!found && radius <= maxRadius) {
-                for (let dy = -radius; dy <= radius; dy++) {
-                    for (let dx = -radius; dx <= radius; dx++) {
-                        if (dx === 0 && dy === 0) continue;
+        while (!found && radius <= maxRadius) {
+            for (let dy = -radius; dy <= radius; dy++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                    if (dx === 0 && dy === 0) continue;
+                    
+                    const testX = newX + dx;
+                    const testY = newY + dy;
+                    
+                    if (testX >= 0 && testX < mapWidth && 
+                        testY >= 0 && testY < mapHeight && 
+                        map[testY][testX] !== 'water' &&
+                        !checkCollision(testX, testY, unitIndex)) {
                         
-                        const testX = newX + dx;
-                        const testY = newY + dy;
-                        
-                        if (testX >= 0 && testX < mapWidth && 
-                            testY >= 0 && testY < mapHeight && 
-                            map[testY][testX] !== 'water' &&
-                            !checkCollision(testX, testY, unitIndex)) {
-                            
-                            newX = testX;
-                            newY = testY;
-                            found = true;
-                            break;
-                        }
+                        newX = testX;
+                        newY = testY;
+                        found = true;
+                        break;
                     }
-                    if (found) break;
                 }
-                radius++;
+                if (found) break;
             }
+            radius++;
         }
 
         unit.targetX = newX;
@@ -673,11 +682,12 @@ function deselectAllUnits() {
 
 // Обновляем функцию sendWorkerToResource
 function sendWorkerToResource(unit, resource) {
-    if (unit.type === 'worker') {
+    if (unit.type === 'worker' && unit.player === 1) { // Только для игрока 1
         unit.targetResource = resource;
-        unit.targetX = resource.x;
-        unit.targetY = resource.y;
-        unit.lastResourceTarget = resource; // Сохраняем цель для возврата после доставки
+        unit.lastResourceTarget = resource; // Сохраняем для возвращения
+        unit.isReturningToBase = false;
+        moveUnit(units.indexOf(unit), resource.x, resource.y);
+        console.log('Рабочий отправлен к ресурсу:', resource);
     }
 }
 
