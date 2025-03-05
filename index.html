@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple RTS Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="selectionPanel" class="selection-panel">
+            <div class="selection-options"></div>
+        </div>
+        <div id="resourcesPanel" class="resources-panel">
+            <div class="resource-item">
+                <div class="resource-icon gold-icon"></div>
+                <span id="goldAmount">0</span>
+            </div>
+            <div class="resource-item">
+                <div class="resource-icon wood-icon"></div>
+                <span id="woodAmount">0</span>
+            </div>
+        </div>
+        <div id="miniMapContainer" class="mini-map-container"></div>
+        <div id="commandPanel" class="command-panel">
+            <button class="command-button building-normal"></button>
+            <button class="command-button building-defense"></button>
+            <button class="command-button unit-infantry"></button>
+            <button class="command-button unit-vehicle"></button>
+            <button class="command-button unit-air"></button>
+        </div>
+    </div>
+    <script type="module" src="map.js"></script>
+    <script type="module" src="minimap.js"></script>
+    <script type="module" src="camera.js"></script>
+    <script type="module" src="units.js"></script>
+    <script type="module" src="buildings.js"></script>
+    <script type="module" src="fog.js"></script>
+    <script type="module" src="game.js"></script>
+</body>
+</html>

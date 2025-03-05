@@ -1,0 +1,249 @@
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    overflow: hidden;
+    font-family: 'Segoe UI', 'Arial', sans-serif;
+}
+
+.game-container {
+    position: relative;
+    max-width: 100vw;
+    max-height: 100vh;
+    overflow: hidden;
+    background: rgba(26, 26, 26, 0.95);
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+#gameCanvas {
+    border: 3px solid rgba(74, 74, 74, 0.8);
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
+    max-width: 90vw;
+    max-height: 90vh;
+    width: 1280px;
+    height: 960px;
+    z-index: 1;
+}
+
+.ui-panel {
+    display: none;
+}
+
+.ui-panel div {
+    margin: 5px 0;
+    font-weight: 500;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.ui-panel span {
+    color: #4CAF50;
+    font-weight: bold;
+    margin-left: 5px;
+}
+
+
+.command-panel {
+    position: absolute;
+    top: 200px;
+    right: 15px;
+    width: 280px;
+    background: rgba(0, 0, 0, 0.85);
+    padding: 8px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(74, 74, 74, 0.6);
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 6px;
+    backdrop-filter: blur(5px);
+    z-index: 20;
+}
+
+.command-button {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+    border: 2px solid rgba(74, 74, 74, 0.8);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.3s ease;
+    position: relative;
+    font-size: 0;
+    color: transparent;
+}
+
+.command-button::before {
+    content: '';
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.3));
+}
+
+.building-normal { 
+    background: linear-gradient(145deg, #2d3436, #222);
+    border-color: #3d4446;
+}
+.building-normal::before {
+    content: '';
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dfe6e9' stroke-width='2'%3E%3Cpath d='M3 21h18M5 21V8l7-5 7 5v13'/%3E%3Cpath d='M9 21v-6h6v6'/%3E%3C/svg%3E");
+}
+
+.building-defense { 
+    background: linear-gradient(145deg, #2d3436, #222);
+    border-color: #3d4446;
+}
+.building-defense::before {
+    content: '';
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2381ecec' stroke-width='2'%3E%3Cpath d='M12 2L3 7v9c0 5 9 6 9 6s9-1 9-6V7l-9-5z'/%3E%3C/svg%3E");
+}
+
+.unit-infantry { 
+    background: linear-gradient(145deg, #2d3436, #222);
+    border-color: #3d4446;
+}
+.unit-infantry::before {
+    content: '';
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fd79a8' stroke-width='2'%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3Cpath d='M8 21v-8h8v8M12 13v8'/%3E%3C/svg%3E");
+}
+
+.unit-vehicle { 
+    background: linear-gradient(145deg, #2d3436, #222);
+    border-color: #3d4446;
+}
+.unit-vehicle::before {
+    content: '';
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2374b9ff' stroke-width='2'%3E%3Cpath d='M4 18h16M4 14h16M8 14v4M16 14v4'/%3E%3Cpath d='M2 14h20v-3H2zM12 11V7l8-2v6'/%3E%3C/svg%3E");
+}
+
+.unit-air { 
+    background: linear-gradient(145deg, #2d3436, #222);
+    border-color: #3d4446;
+}
+.unit-air::before {
+    content: '';
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffeaa7' stroke-width='2'%3E%3Cpath d='M12 15l-3-3H4l8-8 8 8h-5l-3 3zm-3 4h6m-3-4v4'/%3E%3C/svg%3E");
+}
+
+.command-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    background: linear-gradient(145deg, #3d4446, #2d3436);
+}
+
+.command-button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes glow {
+    0% { box-shadow: 0 0 5px rgba(255, 255, 255, 0.1); }
+    50% { box-shadow: 0 0 15px rgba(255, 255, 255, 0.2); }
+    100% { box-shadow: 0 0 5px rgba(255, 255, 255, 0.1); }
+}
+
+.command-button:hover {
+    animation: glow 1.5s infinite;
+}
+
+.selection-panel {
+    position: absolute;
+    top: 260px; /* Располагаем под командной панелью */
+    right: 15px;
+    width: 280px;
+    background: rgba(0, 0, 0, 0.85);
+    border: 2px solid rgba(74, 74, 74, 0.8);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
+    z-index: 30;
+    display: none;
+    padding: 8px;
+}
+
+.selection-panel.active {
+    display: flex;
+}
+
+.selection-options {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+}
+
+.selection-option {
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+    border: 2px solid rgba(74, 74, 74, 0.8);
+    border-radius: 6px;
+    cursor: pointer;
+    position: relative;
+}
+
+.selection-option:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 100;
+}
+
+.resources-panel {
+    position: absolute;
+    top: 30px;
+    right: 215px; /* Располагаем слева от миникарты */
+    background: rgba(0, 0, 0, 0.85);
+    border: 2px solid rgba(74, 74, 74, 0.8);
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.resource-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: white;
+    font-size: 14px;
+}
+
+.resource-icon {
+    width: 20px;
+    height: 20px;
+    background-size: contain;
+}
+
+.gold-icon {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23FFD700'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E");
+}
+
+.wood-icon {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238B4513'%3E%3Cpath d='M12 3l6 6-6 6-6-6z'/%3E%3Cpath d='M12 15v6M8 21h8'/%3E%3C/svg%3E");
+}
