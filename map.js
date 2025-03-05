@@ -9,22 +9,22 @@ canvas.width = tileSize * mapWidth;
 canvas.height = tileSize * mapHeight;
 
 const tileTypes = {
-    grass: '#4a8505',
-    water: '#00B7EB',
-    forest: '#228B22',
-    fog: '#666666', // Только цвета, без текстур
-    'fogExplored': '#333333', // Добавляем цвет для разведанной территории
-    'base1': '#0000FF', // База игрока 1 (синяя)
-    'base2': '#FF0000', // База игрока 2 (красная)
-    'building-normal': '#FFA500',  // Оранжевый для обычных зданий
-    'building-defense': '#00FF00'  // Зелёный для оборонительных зданий
+    grass: '#4CAF50', // Более яркий зеленый
+    water: '#03A9F4', // Более яркий синий
+    forest: '#2E7D32', // Более яркий темно-зеленый
+    fog: '#9E9E9E', // Более светлый серый
+    'fogExplored': '#616161', // Более светлый темно-серый
+    'base1': '#2196F3', // Более яркий синий для базы
+    'base2': '#F44336', // Более яркий красный для базы
+    'building-normal': '#FF9800',  // Более яркий оранжевый
+    'building-defense': '#8BC34A'  // Более яркий светло-зеленый
 };
 
 let resources = []; // Массив для хранения ресурсов
 
 const resourceTypes = {
-    gold: '#FFD700',  // Золотой цвет для золота
-    wood: '#8B4513'   // Коричневый цвет для древесины
+    gold: '#FFC107',  // Более яркий золотой
+    wood: '#795548'   // Более светлый коричневый
 };
 
 let map = Array.from({ length: mapHeight }, () => Array(mapWidth).fill(null));

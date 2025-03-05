@@ -196,7 +196,10 @@ function setupCommandButtons() {
             const currentX = Math.floor((mouseX / camera.zoom + camera.x * tileSize) / tileSize);
             const currentY = Math.floor((mouseY / camera.zoom + camera.y * tileSize) / tileSize);
 
-            // Отрисовка области выделения
+            // Очищаем канвас и перерисовываем всё
+            draw();
+
+            // Рисуем область выделения поверх всего
             const ctx = canvas.getContext('2d');
             ctx.save();
             ctx.scale(camera.zoom, camera.zoom);
@@ -210,6 +213,8 @@ function setupCommandButtons() {
             ctx.strokeStyle = '#FFFFFF';
             ctx.lineWidth = 2;
             ctx.strokeRect(startScreenX, startScreenY, width, height);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.fillRect(startScreenX, startScreenY, width, height);
             
             ctx.restore();
         }
@@ -225,7 +230,7 @@ function setupCommandButtons() {
                 const endY = Math.floor((mouseY / camera.zoom + camera.y * tileSize) / tileSize);
 
                 // Если это был просто клик (без перетаскивания)
-                if (endX === selectionStart.x && endY === selectionStart.y) {
+                if (Math.abs(endX - selectionStart.x) < 2 && Math.abs(endY - selectionStart.y) < 2) {
                     // Проверяем, есть ли юнит в этой точке
                     selectUnit(endX, endY);
                 } else {
@@ -235,6 +240,7 @@ function setupCommandButtons() {
                     const minY = Math.min(selectionStart.y, endY);
                     const maxY = Math.max(selectionStart.y, endY);
 
+                    deselectAllUnits(); // Снимаем предыдущее выделение
                     units.forEach(unit => {
                         if (unit.player === 1 && // Только наши юниты
                             unit.x >= minX && unit.x <= maxX &&

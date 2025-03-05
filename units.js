@@ -60,7 +60,6 @@ function startUnitAnimation() {
         }
 
         if (unit.targetX !== undefined && unit.targetY !== undefined) {
-            // Если нет текущего пути или он пуст, пробуем найти новый путь
             if (!unit.path || unit.path.length === 0) {
                 unit.path = findPath(Math.round(unit.x), Math.round(unit.y), unit.targetX, unit.targetY);
                 
@@ -73,6 +72,13 @@ function startUnitAnimation() {
             
             if (unit.path && unit.path.length > 0) {
                 const nextStep = unit.path[0];
+                
+                // Проверяем коллизию перед движением
+                if (checkCollision(nextStep.x, nextStep.y, unitIndex)) {
+                    // Если путь заблокирован, пересчитываем маршрут
+                    unit.path = null;
+                    return;
+                }
                 
                 if (unit.currentX === undefined) {
                     unit.currentX = unit.x;
@@ -517,31 +523,57 @@ function createWorker(player, x, y) {
     });
 }
 
+// Добавляем функцию проверки коллизии
+function checkCollision(x, y, excludeUnitIndex) {
+    return units.some((unit, index) => 
+        index !== excludeUnitIndex && 
+        Math.abs(unit.x - x) < 1 && 
+        Math.abs(unit.y - y) < 1
+    );
+}
+
 // Обновляем функцию moveUnit
 function moveUnit(unitIndex, newX, newY) {
     if (newX >= 0 && newX < mapWidth && newY >= 0 && newY < mapHeight && 
         map[newY][newX] !== 'water') {
         
-        // Проверяем, не занята ли целевая клетка другим юнитом
-        const isOccupied = units.some((u, i) => 
-            i !== unitIndex && // Исключаем самого себя
-            u.x === newX && 
-            u.y === newY
-        );
+        const unit = units[unitIndex];
+        
+        // Если это прямое перемещение (не через путь)
+        if (!unit.path) {
+            // Ищем ближайшую свободную позицию
+            let found = false;
+            let radius = 0;
+            const maxRadius = 3; // Максимальный радиус поиска
 
-        if (!isOccupied) {
-            const unit = units[unitIndex];
-            unit.targetX = newX;
-            unit.targetY = newY;
-            startUnitAnimation();
-        } else {
-            console.log('Клетка занята, ищем другой путь');
-            // Если клетка занята и это рабочий возвращающийся на базу
-            const unit = units[unitIndex];
-            if (unit.type === 'worker' && unit.isReturningToBase) {
-                moveUnitNearBase(unitIndex);
+            while (!found && radius <= maxRadius) {
+                for (let dy = -radius; dy <= radius; dy++) {
+                    for (let dx = -radius; dx <= radius; dx++) {
+                        if (dx === 0 && dy === 0) continue;
+                        
+                        const testX = newX + dx;
+                        const testY = newY + dy;
+                        
+                        if (testX >= 0 && testX < mapWidth && 
+                            testY >= 0 && testY < mapHeight && 
+                            map[testY][testX] !== 'water' &&
+                            !checkCollision(testX, testY, unitIndex)) {
+                            
+                            newX = testX;
+                            newY = testY;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found) break;
+                }
+                radius++;
             }
         }
+
+        unit.targetX = newX;
+        unit.targetY = newY;
+        startUnitAnimation();
     }
 }
 
