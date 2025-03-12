@@ -51,9 +51,9 @@ body {
 
 .command-panel {
     position: absolute;
-    top: 200px;
-    right: 15px;
-    width: 280px;
+    top: 330px;
+    right: 50px;
+    width: 220px;
     background: rgba(0, 0, 0, 0.85);
     padding: 8px;
     border-radius: 8px;
@@ -68,11 +68,11 @@ body {
 }
 
 .command-button {
-    width: 48px;
-    height: 48px;
+    width: 35px;
+    height: 35px;
     background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
     border: 2px solid rgba(74, 74, 74, 0.8);
-    border-radius: 6px;
+    border-radius: 3px;
     cursor: pointer;
     display: flex;
     justify-content: center;
@@ -162,9 +162,9 @@ body {
 
 .selection-panel {
     position: absolute;
-    top: 260px; /* Располагаем под командной панелью */
-    right: 15px;
-    width: 280px;
+    top: 390px; /* Располагаем под командной панелью */
+    right: 50px;
+    width: 220px;
     background: rgba(0, 0, 0, 0.85);
     border: 2px solid rgba(74, 74, 74, 0.8);
     border-radius: 8px;
@@ -188,8 +188,8 @@ body {
 }
 
 .selection-option {
-    width: 48px;
-    height: 48px;
+    width: 35px;
+    height: 35px;
     padding: 0;
     background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
     border: 2px solid rgba(74, 74, 74, 0.8);
@@ -215,8 +215,8 @@ body {
 
 .resources-panel {
     position: absolute;
-    top: 30px;
-    right: 215px; /* Располагаем слева от миникарты */
+    top: 20px;
+    right: 330px; /* Располагаем слева от миникарты */
     background: rgba(0, 0, 0, 0.85);
     border: 2px solid rgba(74, 74, 74, 0.8);
     border-radius: 8px;
@@ -224,6 +224,20 @@ body {
     display: flex;
     gap: 10px;
     align-items: center;
+}
+
+/* Миникарта, НЕ ТРОГАТЬ РАЗМЕРЫ, ВСЁ ИДЕАЛЬНО ВЫСТАВЛЕНО */
+.mini-map-container {
+    position: absolute;
+    top: 23px;
+    right: 23px;
+    width: 300px; /* Соответствует miniMapSize */
+    height: 300px; /* Соответствует miniMapSize */
+    background: rgba(0, 0, 0, 0.9);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    z-index: 10;
 }
 
 .resource-item {

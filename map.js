@@ -3,8 +3,8 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 const tileSize = 32;
-const mapWidth = 40; // Уменьшаем для тестов, можно вернуть 60
-const mapHeight = 30; // Уменьшаем для тестов, можно вернуть 45
+const mapWidth = 75; // Более щадящий размер карты
+const mapHeight = 75; // Более щадящий размер карты
 canvas.width = tileSize * mapWidth;
 canvas.height = tileSize * mapHeight;
 
@@ -16,6 +16,8 @@ const tileTypes = {
     'fogExplored': '#616161', // Более светлый темно-серый
     'base1': '#2196F3', // Более яркий синий для базы
     'base2': '#F44336', // Более яркий красный для базы
+    'base3': '#9C27B0', // Добавляем цвет для базы 3-го игрока
+    'base4': '#FF9800', // Добавляем цвет для базы 4-го игрока
     'building-normal': '#FF9800',  // Более яркий оранжевый
     'building-defense': '#8BC34A'  // Более яркий светло-зеленый
 };
@@ -52,83 +54,88 @@ async function generateMap() {
     const variation = Math.floor(Math.random() * 2) + 1;
     const noise = generatePerlinNoise(mapWidth, mapHeight, variation);
 
-    for (let y = 0; y < mapHeight; y += chunkSize) {
-        for (let x = 0; x < mapWidth; x += chunkSize) {
-            await new Promise(resolve => setTimeout(resolve, 10));
-            const chunk = [];
-            for (let cy = 0; cy < chunkSize && y + cy < mapHeight; cy++) {
-                chunk[cy] = [];
-                for (let cx = 0; cx < chunkSize && x + cx < mapWidth; cx++) {
-                    const noiseValue = noise[y + cy][x + cx];
-                    if (noiseValue < 0.2) chunk[cy][cx] = 'water';
-                    else if (noiseValue < 0.5) chunk[cy][cx] = 'forest';
-                    else chunk[cy][cx] = 'grass';
-                }
-            }
-            chunks.push({ x, y, data: chunk });
-            for (let cy = 0; cy < chunk.length; cy++)
-                for (let cx = 0; cx < chunk[cy].length; cx++)
-                    map[y + cy][x + cx] = chunk[cy][cx];
+    // Генерируем карту за один проход
+    for (let y = 0; y < mapHeight; y++) {
+        for (let x = 0; x < mapWidth; x++) {
+            const noiseValue = noise[y][x];
+            if (noiseValue < 0.2) map[y][x] = 'water';
+            else if (noiseValue < 0.5) map[y][x] = 'forest';
+            else map[y][x] = 'grass';
         }
     }
 
-    // Размещение баз в противоположных углах
-    // База синих в левом верхнем углу
-    const base1X = 0;
-    const base1Y = 0;
-    
-    // Гарантируем, что место для синей базы будет пригодным
-    map[base1Y][base1X] = 'grass';
-    map[base1Y][base1X] = 'base1';
+    // Размещаем базы
+    map[0][0] = 'base1';
+    map[mapHeight - 1][mapWidth - 1] = 'base2';
 
-    // База красных в правом нижнем углу
-    const base2X = mapWidth - 1;
-    const base2Y = mapHeight - 1;
-    
-    // Гарантируем, что место для красной базы будет пригодным
-    map[base2Y][base2X] = 'grass';
-    map[base2Y][base2X] = 'base2';
-
-    // Очищаем территорию вокруг баз от воды
-    for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-            // Для синей базы
-            if (base1Y + dy >= 0 && base1Y + dy < mapHeight && base1X + dx >= 0 && base1X + dx < mapWidth) {
-                if (map[base1Y + dy][base1X + dx] === 'water') {
-                    map[base1Y + dy][base1X + dx] = 'grass';
-                }
+    // Очищаем территорию вокруг баз
+    for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+            if (dy + 0 >= 0 && dy + 0 < mapHeight && dx + 0 >= 0 && dx + 0 < mapWidth) {
+                map[dy + 0][dx + 0] = 'grass';
             }
-            // Для красной базы
-            if (base2Y + dy >= 0 && base2Y + dy < mapHeight && base2X + dx >= 0 && base2X + dx < mapWidth) {
-                if (map[base2Y + dy][base2X + dx] === 'water') {
-                    map[base2Y + dy][base2X + dx] = 'grass';
-                }
+            if (dy + mapHeight - 1 >= 0 && dy + mapHeight - 1 < mapHeight && 
+                dx + mapWidth - 1 >= 0 && dx + mapWidth - 1 < mapWidth) {
+                map[dy + mapHeight - 1][dx + mapWidth - 1] = 'grass';
             }
         }
     }
 
     // Генерация ресурсов
-    const numberOfResourcePiles = 8; // Увеличиваем количество куч ресурсов
-    for (let i = 0; i < numberOfResourcePiles; i++) {
+    const numberOfGoldPiles = 10;
+    const numberOfWoodPiles = 12;
+
+    // Генерация золота
+    for (let i = 0; i < numberOfGoldPiles; i++) {
         let pileX, pileY;
         do {
             pileX = Math.floor(Math.random() * mapWidth);
             pileY = Math.floor(Math.random() * mapHeight);
-        } while (map[pileY][pileX] === 'water' || 
-                (Math.abs(pileX - base1X) < 3 && Math.abs(pileY - base1Y) < 3) || 
-                (Math.abs(pileX - base2X) < 3 && Math.abs(pileY - base2Y) < 3));
+        } while (
+            map[pileY][pileX] === 'water' || 
+            (Math.abs(pileX) < 4 && Math.abs(pileY) < 4) || 
+            (Math.abs(pileX - (mapWidth - 1)) < 4 && Math.abs(pileY - (mapHeight - 1)) < 4) ||
+            resources.some(r => Math.abs(r.x - pileX) < 4 && Math.abs(r.y - pileY) < 4)
+        );
 
-        const pileSize = Math.floor(Math.random() * 2) + 4;
+        const pileSize = Math.floor(Math.random() * 2) + 3; // 3-4 золота в куче
         for (let j = 0; j < pileSize; j++) {
-            let resourceX, resourceY;
-            do {
-                resourceX = pileX + (Math.floor(Math.random() * 3) - 1);
-                resourceY = pileY + (Math.floor(Math.random() * 3) - 1);
-            } while (resourceX < 0 || resourceX >= mapWidth || resourceY < 0 || resourceY >= mapHeight || 
-                    map[resourceY][resourceX] === 'water');
+            let resourceX = pileX + (Math.floor(Math.random() * 3) - 1);
+            let resourceY = pileY + (Math.floor(Math.random() * 3) - 1);
+            
+            if (resourceX >= 0 && resourceX < mapWidth && 
+                resourceY >= 0 && resourceY < mapHeight && 
+                map[resourceY][resourceX] !== 'water' &&
+                !resources.some(r => r.x === resourceX && r.y === resourceY)) {
+                resources.push({ x: resourceX, y: resourceY, type: 'gold', amount: 400 });
+            }
+        }
+    }
 
-            const resourceType = Math.random() < 0.5 ? 'gold' : 'wood';
-            resources.push({ x: resourceX, y: resourceY, type: resourceType, amount: 200 }); // Увеличиваем количество ресурсов
+    // Генерация дерева
+    for (let i = 0; i < numberOfWoodPiles; i++) {
+        let pileX, pileY;
+        do {
+            pileX = Math.floor(Math.random() * mapWidth);
+            pileY = Math.floor(Math.random() * mapHeight);
+        } while (
+            map[pileY][pileX] === 'water' || 
+            (Math.abs(pileX) < 4 && Math.abs(pileY) < 4) || 
+            (Math.abs(pileX - (mapWidth - 1)) < 4 && Math.abs(pileY - (mapHeight - 1)) < 4) ||
+            resources.some(r => Math.abs(r.x - pileX) < 4 && Math.abs(r.y - pileY) < 4)
+        );
+
+        const pileSize = Math.floor(Math.random() * 2) + 4; // 4-5 деревьев в куче
+        for (let j = 0; j < pileSize; j++) {
+            let resourceX = pileX + (Math.floor(Math.random() * 3) - 1);
+            let resourceY = pileY + (Math.floor(Math.random() * 3) - 1);
+            
+            if (resourceX >= 0 && resourceX < mapWidth && 
+                resourceY >= 0 && resourceY < mapHeight && 
+                map[resourceY][resourceX] !== 'water' &&
+                !resources.some(r => r.x === resourceX && r.y === resourceY)) {
+                resources.push({ x: resourceX, y: resourceY, type: 'wood', amount: 450 });
+            }
         }
     }
 }

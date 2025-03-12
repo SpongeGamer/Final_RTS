@@ -2,7 +2,7 @@
 import { tileSize, mapWidth, mapHeight, tileTypes, map, visibility, chunks, generateMap, drawMap, resources, resourceTypes } from './map.js';
 import { drawMiniMap, miniMapSize, miniTileSize } from './minimap.js';
 import { camera, handleCameraMovement } from './camera.js';
-import { units, unitCount, moveUnit, drawUnits, updateVisibility, startUnitAnimation, drawPlayerResources, playerResources, createWorker, selectUnit, deselectAllUnits, selectedUnits, sendWorkerToResource } from './units.js';
+import { units, unitCount, moveUnit, drawUnits, updateVisibility, startUnitAnimation, drawPlayerResources, playerResources, createWorker, selectUnit, deselectAllUnits, selectedUnits, sendWorkerToResource, selectUnitsInRect } from './units.js';
 import { buildings, buildingCount, placeBuilding, drawBuildings } from './buildings.js';
 import { fog, updateFog, drawFog } from './fog.js';
 
@@ -38,7 +38,7 @@ async function init() {
     await updateFog();
     handleCameraMovement(draw);
     setupCommandButtons();
-    startGameLoop();
+    functions.startGameLoop();
 }
 
 function setupCommandButtons() {
@@ -127,33 +127,34 @@ function setupCommandButtons() {
                 const rect = canvas.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
                 const mouseY = e.clientY - rect.top;
-                const tileX = Math.floor((mouseX / camera.zoom + camera.x * tileSize) / tileSize);
-                const tileY = Math.floor((mouseY / camera.zoom + camera.y * tileSize) / tileSize);
+                const { tileX, tileY } = functions.screenToTileCoords(mouseX, mouseY);
+                
+                if (tileX < 0 || tileX >= mapWidth || tileY < 0 || tileY >= mapHeight) {
+                    return;
+                }
 
-                // Проверяем, можно ли разместить юнита и есть ли достаточно ресурсов
                 if (playerResources[1] && playerResources[1].gold >= window.selectedUnitCost.gold && 
                     playerResources[1].wood >= window.selectedUnitCost.wood) {
-                    
-                    // Временно блокируем размещение юнитов
                     isPlacingUnit = false;
                     const currentType = window.selectedUnitType;
                     const currentCost = window.selectedUnitCost;
                     
-                    // Создаем юнита
                     if (currentType === 'worker') {
                         const unit = await createWorker(1, tileX, tileY);
                         if (unit) {
-                            // Вычитаем ресурсы только если юнит был успешно создан
                             playerResources[1].gold -= currentCost.gold;
                             playerResources[1].wood -= currentCost.wood;
                             updateResourceDisplay();
                         }
                     } else if (currentType === 'infantry') {
-                        // TODO: Добавить функцию создания пехотинца
-                        // createInfantry(1, tileX, tileY);
+                        const unit = await createInfantry(1, tileX, tileY);
+                        if (unit) {
+                            playerResources[1].gold -= currentCost.gold;
+                            playerResources[1].wood -= currentCost.wood;
+                            updateResourceDisplay();
+                        }
                     }
 
-                    // Сбрасываем состояние размещения
                     selectedButton = null;
                     window.previewUnit = null;
                     window.selectedUnitType = null;
@@ -161,41 +162,72 @@ function setupCommandButtons() {
                     selectionPanel.classList.remove('active');
                 }
             } else {
-                // Простое выделение юнита по клику
                 const rect = canvas.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
                 const mouseY = e.clientY - rect.top;
-                const clickX = Math.floor((mouseX / camera.zoom + camera.x * tileSize) / tileSize);
-                const clickY = Math.floor((mouseY / camera.zoom + camera.y * tileSize) / tileSize);
-                
+                const { tileX, tileY } = functions.screenToTileCoords(mouseX, mouseY);
+    
+                isMouseDown = true;
+                selectionStart = { tileX, tileY };
+    
                 deselectAllUnits();
-                selectUnit(clickX, clickY);
+                if (selectUnit(tileX, tileY)) {
+                    console.log(`Unit selected at (${tileX}, ${tileY})`);
+                } else {
+                    console.log(`No unit found at (${tileX}, ${tileY})`);
+                }
                 draw();
             }
         }
     });
-
+        
     canvas.addEventListener('mousemove', (e) => {
         if (isPlacingUnit) {
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
             
-            // Преобразуем координаты мыши в координаты тайлов
-            const tileX = Math.floor((mouseX / camera.zoom + camera.x * tileSize) / tileSize);
-            const tileY = Math.floor((mouseY / camera.zoom + camera.y * tileSize) / tileSize);
+            const { tileX, tileY } = functions.screenToTileCoords(mouseX, mouseY);
             
             window.previewUnit = {
-                x: tileX * tileSize,
-                y: tileY * tileSize
+                x: tileX,
+                y: tileY
             };
             
+            draw();
+        } else if (isMouseDown) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            const { tileX, tileY } = functions.screenToTileCoords(mouseX, mouseY);
             draw();
         }
     });
 
     canvas.addEventListener('mouseup', (e) => {
-        if (e.button === 2) { // ПКМ
+        if (e.button === 0 && isMouseDown) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            const { tileX, tileY } = functions.screenToTileCoords(mouseX, mouseY);
+
+            const dx = Math.abs(selectionStart.tileX - tileX);
+            const dy = Math.abs(selectionStart.tileY - tileY);
+            if (dx <= 1 && dy <= 1) {
+                deselectAllUnits();
+                if (!selectUnit(tileX, tileY)) {
+                    console.log(`No unit selected at final click (${tileX}, ${tileY})`);
+                }
+            } else {
+                deselectAllUnits();
+                selectUnitsInRect(selectionStart.tileX, selectionStart.tileY, tileX, tileY);
+                console.log(`Selected units in rect (${selectionStart.tileX}, ${selectionStart.tileY}) to (${tileX}, ${tileY})`);
+            }
+
+            isMouseDown = false;
+            selectionStart = null;
+            draw();
+        } else if (e.button === 2) {
             handleRightClick(e);
         }
     });
@@ -203,8 +235,14 @@ function setupCommandButtons() {
     // Добавляем функцию обработки правого клика
     function handleRightClick(event) {
         const rect = canvas.getBoundingClientRect();
-        const clickX = Math.floor((event.clientX - rect.left) / 32 / camera.zoom + camera.x);
-        const clickY = Math.floor((event.clientY - rect.top) / 32 / camera.zoom + camera.y);
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+        const { tileX: clickX, tileY: clickY } = functions.screenToTileCoords(mouseX, mouseY);
+
+        // Проверяем границы карты
+        if (clickX < 0 || clickX >= mapWidth || clickY < 0 || clickY >= mapHeight) {
+            return; // Игнорируем клик за пределами карты
+        }
 
         const resource = resources.find(r => r.x === clickX && r.y === clickY);
         if (resource && selectedUnits.length > 0) {
@@ -214,10 +252,8 @@ function setupCommandButtons() {
                 }
             });
         } else if (map[clickY][clickX] !== 'water' && selectedUnits.length > 0) {
-            // Если клик не по ресурсу и не по воде - просто перемещаем юнитов
             selectedUnits.forEach(unit => {
                 moveUnit(units.indexOf(unit), clickX, clickY);
-                // Сбрасываем цели сбора ресурсов при обычном перемещении
                 unit.targetResource = null;
                 unit.lastResourceTarget = null;
                 unit.isReturningToBase = false;
@@ -233,29 +269,55 @@ function setupCommandButtons() {
     updateResourceDisplay();
 }
 
-function gameLoop(currentTime) {
-    const deltaTime = (currentTime - lastTime) / 1000; // перевод в секунды
-    lastTime = currentTime;
+const functions = {
+    gameLoop(currentTime) {
+        const deltaTime = (currentTime - lastTime) / 1000;
+        lastTime = currentTime;
+        startUnitAnimation();
+        if (currentTime - lastVisibilityUpdate > VISIBILITY_UPDATE_INTERVAL) {
+            updateVisibility();
+            updateFog();
+            lastVisibilityUpdate = currentTime;
+        }
+        draw();
+        requestAnimationFrame(functions.gameLoop);
+    },
 
-    // Обновление состояния игры
-    startUnitAnimation();
+    startGameLoop() {
+        lastTime = performance.now();
+        requestAnimationFrame(functions.gameLoop);
+    },
 
-    // Обновляем видимость и туман войны с определенным интервалом
-    if (currentTime - lastVisibilityUpdate > VISIBILITY_UPDATE_INTERVAL) {
-        updateVisibility();
-        updateFog();
-        lastVisibilityUpdate = currentTime;
+    screenToTileCoords(mouseX, mouseY) {
+        // Учитываем размер canvas и текущее положение камеры
+        const canvas = document.getElementById('gameCanvas');
+        const rect = canvas.getBoundingClientRect();
+        
+        // Преобразуем координаты мыши относительно реального размера canvas
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        
+        const adjustedX = mouseX * scaleX;
+        const adjustedY = mouseY * scaleY;
+        
+        // Преобразуем в мировые координаты с учетом масштаба камеры
+        const worldX = (adjustedX / camera.zoom) + (camera.x * tileSize);
+        const worldY = (adjustedY / camera.zoom) + (camera.y * tileSize);
+        
+        // Преобразуем в координаты тайлов
+        const tileX = Math.floor(worldX / tileSize);
+        const tileY = Math.floor(worldY / tileSize);
+        
+        console.log(`Screen coords: (${mouseX}, ${mouseY})`);
+        console.log(`Adjusted coords: (${adjustedX}, ${adjustedY})`);
+        console.log(`World coords: (${worldX}, ${worldY})`);
+        console.log(`Tile coords: (${tileX}, ${tileY})`);
+        
+        return {
+            tileX: Math.max(0, Math.min(mapWidth - 1, tileX)),
+            tileY: Math.max(0, Math.min(mapHeight - 1, tileY))
+        };
     }
-
-    draw();
-
-    // Продолжаем цикл
-    requestAnimationFrame(gameLoop);
-}
-
-function startGameLoop() {
-    lastTime = performance.now();
-    requestAnimationFrame(gameLoop);
-}
+};
 
 init();

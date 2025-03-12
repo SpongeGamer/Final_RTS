@@ -529,13 +529,21 @@ function showSpawnAnimation(x, y) {
 
 // Проверка близости к базе
 function isNearBaseForSpawn(x, y) {
-    // Проверяем только клетки вокруг базы (радиус 2)
-    const baseX = 0;
-    const baseY = 0;
-    const maxDistance = 2;
+    // Ищем базу игрока 1
+    const base = buildings.find(b => b.player === 1 && b.type === 'base1');
+    if (!base) {
+        console.log('База не найдена');
+        return false;
+    }
+
+    const maxDistance = 2; // Радиус в тайлах
+    const dx = Math.abs(x - base.x);
+    const dy = Math.abs(y - base.y);
+    const isNear = dx <= maxDistance && dy <= maxDistance;
     
-    return Math.abs(x - baseX) <= maxDistance && 
-           Math.abs(y - baseY) <= maxDistance;
+    console.log(`Checking spawn position (${x}, ${y}), base at (${base.x}, ${base.y}), distance: dx=${dx}, dy=${dy}, isNear=${isNear}`);
+    
+    return isNear;
 }
 
 // Проверка наличия казармы
@@ -547,87 +555,119 @@ function hasBarracks(player) {
 }
 
 function createWorker(player, x, y) {
-    // Проверяем близость к базе для спавна
+    console.log(`Attempting to create worker at (${x}, ${y}) for player ${player}`);
+
     if (!isNearBaseForSpawn(x, y)) {
-        console.log('Рабочих можно создавать только рядом с базой');
+        console.log('Рабочих можно создавать только рядом с базы');
         return null;
     }
 
-    // Проверяем видимость
     if (!visibility[y][x]) {
         console.log('Нельзя создавать юнитов в тумане войны');
         return null;
     }
 
-    // Создаем юнита с задержкой
-    return new Promise((resolve) => {
+    // Проверяем ресурсы перед запуском анимации
+    if (playerResources[player] && playerResources[player].gold >= 10 && playerResources[player].wood >= 0) {
         showSpawnAnimation(x, y);
+        console.log('Starting worker spawn animation');
 
-        setTimeout(() => {
-            const unit = {
-                x,
-                y,
-                player,
-                visionRange: 3,
-                type: 'worker',
-                selected: false,
-                inventory: { resource: null, amount: 0 },
-                maxInventory: 100,
-                lastVisibilityUpdateX: x,
-                lastVisibilityUpdateY: y,
-                targetResource: null,
-                lastResourceTarget: null,
-                isReturningToBase: false,
-                currentX: undefined,
-                currentY: undefined,
-                lastCollectionTime: null
-            };
-            units.push(unit);
-            resolve(unit);
-        }, 3000);
-    });
-}
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                // Проверяем условия ещё раз перед фактическим созданием
+                if (!visibility[y][x] || !isNearBaseForSpawn(x, y)) {
+                    console.log('Условия создания нарушены во время анимации');
+                    resolve(null);
+                    return;
+                }
 
-// Функция создания пехотинца
-function createInfantry(player, x, y) {
-    // Проверяем наличие казармы (кроме первого пехотинца)
-    if (units.some(u => u.type === 'infantry' && u.player === player) && !hasBarracks(player)) {
-        console.log('Для создания пехотинца необходима казарма');
+                const unit = {
+                    x,
+                    y,
+                    player,
+                    visionRange: 3,
+                    type: 'worker',
+                    selected: false,
+                    inventory: { resource: null, amount: 0 },
+                    maxInventory: 100,
+                    lastVisibilityUpdateX: x,
+                    lastVisibilityUpdateY: y,
+                    targetResource: null,
+                    lastResourceTarget: null,
+                    isReturningToBase: false,
+                    currentX: x,
+                    currentY: y,
+                    lastCollectionTime: null
+                };
+                units.push(unit);
+                playerResources[player].gold -= 10;
+                console.log('Worker created successfully');
+                updateVisibility();
+                resolve(unit);
+            }, 3000);
+        });
+    } else {
+        console.log('Недостаточно ресурсов для создания рабочего');
         return null;
     }
+}
 
-    // Проверяем близость к базе для спавна
+function createInfantry(player, x, y) {
+    console.log(`Attempting to create infantry at (${x}, ${y}) for player ${player}`);
+
     if (!isNearBaseForSpawn(x, y)) {
         console.log('Пехотинцев можно создавать только рядом с базой');
         return null;
     }
 
-    // Проверяем видимость
     if (!visibility[y][x]) {
         console.log('Нельзя создавать юнитов в тумане войны');
         return null;
     }
 
-    return new Promise((resolve) => {
-        showSpawnAnimation(x, y);
+    if (units.some(u => u.type === 'infantry' && u.player === player) && !hasBarracks(player)) {
+        console.log('Для создания пехотинца необходима казарма');
+        return null;
+    }
 
-        setTimeout(() => {
-            const unit = {
-                x,
-                y,
-                player,
-                visionRange: 4,
-                type: 'infantry',
-                selected: false,
-                inventory: { resource: null, amount: 0 },
-                maxInventory: 0,
-                lastVisibilityUpdateX: x,
-                lastVisibilityUpdateY: y
-            };
-            units.push(unit);
-            resolve(unit);
-        }, 3000);
-    });
+    if (playerResources[player] && playerResources[player].gold >= 20 && playerResources[player].wood >= 0) {
+        showSpawnAnimation(x, y);
+        console.log('Starting infantry spawn animation');
+
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                // Проверяем условия ещё раз перед фактическим созданием
+                if (!visibility[y][x] || !isNearBaseForSpawn(x, y)) {
+                    console.log('Условия создания нарушены во время анимации');
+                    resolve(null);
+                    return;
+                }
+
+                const unit = {
+                    x,
+                    y,
+                    player,
+                    visionRange: 4,
+                    type: 'infantry',
+                    selected: false,
+                    inventory: { resource: null, amount: 0 },
+                    maxInventory: 0,
+                    lastVisibilityUpdateX: x,
+                    lastVisibilityUpdateY: y,
+                    currentX: x,
+                    currentY: y
+                };
+                units.push(unit);
+                playerResources[player].gold -= 20;
+                console.log('Infantry created successfully');
+                updateVisibility();
+                resolve(unit);
+            }, 3000);
+        });
+    } else {
+        console.log('Недостаточно ресурсов для создания пехотинца');
+        return null;
+    }
 }
 
 // Обновляем функцию drawUnits для отображения улучшенной анимации спавна
@@ -645,30 +685,30 @@ function drawUnits() {
 
     // Отрисовка эффектов спавна
     spawnEffects.forEach((effect, index) => {
-        const x = (effect.x - camera.x) * 32;
-        const y = (effect.y - camera.y) * 32;
-        
-        // Рисуем частицы
-        effect.particles.forEach(particle => {
-            particle.radius = (effect.progress / effect.maxProgress) * 20;
-            const particleX = x + 16 + Math.cos(particle.angle) * particle.radius;
-            const particleY = y + 16 + Math.sin(particle.angle) * particle.radius;
+        if (visibility[Math.round(effect.y)][Math.round(effect.x)]) {
+            const x = (effect.x - camera.x) * 32;
+            const y = (effect.y - camera.y) * 32;
+            
+            effect.particles.forEach(particle => {
+                particle.radius = (effect.progress / effect.maxProgress) * 20;
+                const particleX = x + 16 + Math.cos(particle.angle) * particle.radius;
+                const particleY = y + 16 + Math.sin(particle.angle) * particle.radius;
+                
+                ctx.beginPath();
+                ctx.arc(particleX, particleY, 2, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${1 - effect.progress / effect.maxProgress})`;
+                ctx.fill();
+            });
             
             ctx.beginPath();
-            ctx.arc(particleX, particleY, 2, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(255, 255, 255, ${1 - effect.progress / effect.maxProgress})`;
+            ctx.arc(x + 16, y + 16, (1 - effect.progress / effect.maxProgress) * 16, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(0, 255, 255, ${0.5 - effect.progress / effect.maxProgress / 2})`;
             ctx.fill();
-        });
-        
-        // Рисуем центральный круг
-        ctx.beginPath();
-        ctx.arc(x + 16, y + 16, (1 - effect.progress / effect.maxProgress) * 16, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0, 255, 255, ${0.5 - effect.progress / effect.maxProgress / 2})`;
-        ctx.fill();
-        
-        effect.progress++;
-        if (effect.progress >= effect.maxProgress) {
-            spawnEffects.splice(index, 1);
+            
+            effect.progress++;
+            if (effect.progress >= effect.maxProgress) {
+                spawnEffects.splice(index, 1);
+            }
         }
     });
 
@@ -676,8 +716,11 @@ function drawUnits() {
     units.forEach(unit => {
         if (unit.x >= startX && unit.x < endX && unit.y >= startY && unit.y < endY) {
             const color = unit.player === 1 ? '#0000FF' : '#FF0000';
-            const x = (unit.x - camera.x) * 32;
-            const y = (unit.y - camera.y) * 32;
+            // Используем текущие координаты для отрисовки
+            const currentX = unit.currentX !== undefined ? unit.currentX : unit.x;
+            const currentY = unit.currentY !== undefined ? unit.currentY : unit.y;
+            const x = (currentX - camera.x) * 32;
+            const y = (currentY - camera.y) * 32;
 
             // Рисуем выделение если юнит выбран
             if (unit.selected) {
@@ -701,13 +744,13 @@ function drawUnits() {
                     break;
                 case 'infantry':
                     // Рисуем пехотинца как треугольник
-                ctx.beginPath();
+                    ctx.beginPath();
                     ctx.moveTo(x + 16, y + 8);
                     ctx.lineTo(x + 24, y + 24);
                     ctx.lineTo(x + 8, y + 24);
                     ctx.closePath();
                     ctx.fillStyle = color;
-                ctx.fill();
+                    ctx.fill();
                     break;
                 default:
                     // Для остальных юнитов используем квадрат
@@ -732,11 +775,59 @@ function drawPlayerResources() {
 
 // Функция для выделения юнита
 function selectUnit(x, y) {
+    let found = false;
     units.forEach(unit => {
-        if (unit.x === x && unit.y === y && unit.player === 1) { // Только наши юниты (игрок 1)
-            unit.selected = true;
-            selectedUnits.push(unit);
+        if (unit.player === 1) {
+            const currentX = unit.currentX !== undefined ? unit.currentX : unit.x;
+            const currentY = unit.currentY !== undefined ? unit.currentY : unit.y;
+            
+            // Увеличиваем область клика до размера тайла
+            const distance = Math.sqrt(
+                Math.pow(currentX - x, 2) + 
+                Math.pow(currentY - y, 2)
+            );
+            
+            if (distance < 0.5) {  // Радиус в половину тайла
+                unit.selected = true;
+                if (!selectedUnits.includes(unit)) {
+                    selectedUnits.push(unit);
+                    console.log(`Selected unit at (${currentX}, ${currentY})`);
+                }
+                found = true;
             }
+        }
+    });
+    return found;
+}
+
+// Новая функция для выделения юнитов в прямоугольной области
+function selectUnitsInRect(startX, startY, endX, endY) {
+    const minX = Math.min(startX, endX);
+    const maxX = Math.max(startX, endX);
+    const minY = Math.min(startY, endY);
+    const maxY = Math.max(startY, endY);
+
+    console.log(`Selecting units in rect from (${minX}, ${minY}) to (${maxX}, ${maxY})`);
+
+    units.forEach(unit => {
+        if (unit.player === 1) {
+            const currentX = unit.currentX !== undefined ? unit.currentX : unit.x;
+            const currentY = unit.currentY !== undefined ? unit.currentY : unit.y;
+            const tileX = Math.round(currentX);
+            const tileY = Math.round(currentY);
+            const dx = currentX - tileX;
+            const dy = currentY - tileY;
+            const distanceFromTile = Math.sqrt(dx * dx + dy * dy);
+
+            // Проверяем, находится ли юнит в радиусе 0.5 от ближайшего тайла внутри прямоугольника
+            if (tileX >= minX && tileX <= maxX && tileY >= minY && tileY <= maxY && distanceFromTile <= 0.5) {
+                unit.selected = true;
+                if (!selectedUnits.includes(unit)) {
+                    selectedUnits.push(unit);
+                    console.log(`Selected unit at (${currentX}, ${currentY}) in rect selection`);
+                }
+            }
+        }
     });
 }
 
@@ -759,60 +850,52 @@ function sendWorkerToResource(unit, resource) {
 
 // Функция перемещения юнита
 function moveUnit(unitIndex, newX, newY) {
-    if (newX >= 0 && newX < mapWidth && newY >= 0 && newY < mapHeight && 
-        map[newY][newX] !== 'water') {
-        
-        const unit = units[unitIndex];
-        
-        // Сбрасываем текущий путь
-        unit.path = null;
-        unit.currentX = unit.x;
-        unit.currentY = unit.y;
-        
-        // Если юнит возвращается на базу, позволяем ему подойти ближе
-        if (unit.isReturningToBase) {
-            unit.targetX = newX;
-            unit.targetY = newY;
-            startUnitAnimation();
-            return;
-        }
-        
-        // Для обычного движения ищем свободную позицию
-        let found = false;
-        let radius = 0;
-        const maxRadius = 3;
+    console.log(`moveUnit called for unit ${unitIndex} to (${newX}, ${newY})`);
 
-        while (!found && radius <= maxRadius) {
-            for (let dy = -radius; dy <= radius; dy++) {
-                for (let dx = -radius; dx <= radius; dx++) {
-                    if (dx === 0 && dy === 0) continue;
-                    
-                    const testX = newX + dx;
-                    const testY = newY + dy;
-                    
-                    if (testX >= 0 && testX < mapWidth && 
-                        testY >= 0 && testY < mapHeight && 
-                        map[testY][testX] !== 'water' &&
-                        !checkCollision(testX, testY, unitIndex)) {
-                        
-                        unit.targetX = testX;
-                        unit.targetY = testY;
-                        found = true;
-                        break;
-                    }
-                }
-                if (found) break;
-            }
-            radius++;
-        }
+    if (newX < 0 || newX >= mapWidth || newY < 0 || newY >= mapHeight || 
+        map[newY][newX] === 'water') {
+        console.log(`Invalid move target: out of bounds or water at (${newX}, ${newY})`);
+        return;
+    }
 
-        if (!found) {
+    const unit = units[unitIndex];
+    console.log(`Unit current position: (${unit.x}, ${unit.y})`);
+    
+    unit.path = null;
+    unit.currentX = unit.x;
+    unit.currentY = unit.y;
+
+    if (unit.isReturningToBase) {
+        unit.targetX = newX;
+        unit.targetY = newY;
+        console.log(`Unit returning to base, target set to: (${unit.targetX}, ${unit.targetY})`);
+        startUnitAnimation();
+        return;
+    }
+
+    // Проверяем, свободна ли целевая позиция
+    if (!checkCollision(newX, newY, unitIndex)) {
+        unit.targetX = newX;
+        unit.targetY = newY;
+        console.log(`Target position is free, moving directly to: (${unit.targetX}, ${unit.targetY})`);
+    } else {
+        console.log('Target position is occupied, searching for nearest free position using A*');
+        // Используем A* для поиска ближайшей свободной клетки
+        const path = findPath(Math.round(unit.x), Math.round(unit.y), newX, newY);
+        if (path && path.length > 0) {
+            // Берем последнюю точку пути, до которой юнит может дойти
+            const lastStep = path[path.length - 1];
+            unit.targetX = lastStep.x;
+            unit.targetY = lastStep.y;
+            console.log(`Found reachable position via A*: (${unit.targetX}, ${unit.targetY})`);
+        } else {
+            console.log('No reachable position found, staying in place');
             unit.targetX = unit.x;
             unit.targetY = unit.y;
         }
-        
-        startUnitAnimation();
     }
+    
+    startUnitAnimation();
 }
 
 // Экспортируем все необходимые функции и данные
@@ -820,5 +903,5 @@ export {
     units, unitCount, moveUnit, drawUnits, updateVisibility, 
     startUnitAnimation, drawPlayerResources, playerResources, 
     createWorker, createInfantry, selectUnit, deselectAllUnits, selectedUnits,
-    sendWorkerToResource 
+    sendWorkerToResource, selectUnitsInRect
 };

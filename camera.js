@@ -21,19 +21,19 @@ function handleCameraMovement(drawCallback) {
         switch (e.key.toLowerCase()) {
             case 'arrowup':
             case 'w':
-                camera.y = Math.max(0, camera.y - speed / (32 * camera.zoom));
+                camera.y = Math.max(0, camera.y - speed / camera.zoom);
                 break;
             case 'arrowdown':
             case 's':
-                camera.y = Math.min(mapHeight - camera.height * camera.zoom, camera.y + speed / (32 * camera.zoom));
+                camera.y = Math.min(mapHeight - camera.height * camera.zoom, camera.y + speed / camera.zoom);
                 break;
             case 'arrowleft':
             case 'a':
-                camera.x = Math.max(0, camera.x - speed / (32 * camera.zoom));
+                camera.x = Math.max(0, camera.x - speed / camera.zoom);
                 break;
             case 'arrowright':
             case 'd':
-                camera.x = Math.min(mapWidth - camera.width * camera.zoom, camera.x + speed / (32 * camera.zoom));
+                camera.x = Math.min(mapWidth - camera.width * camera.zoom, camera.x + speed / camera.zoom);
                 break;
         }
         drawCallback(); // Вызываем переданную функцию для перерисовки
