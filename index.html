@@ -1,42 +1,45 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple RTS Game</title>
-    <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8"> <!-- Кодировка страницы -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Адаптация под мобильные устройства -->
+    <title>Simple RTS Game</title> <!-- Заголовок страницы -->
+    <link rel="stylesheet" href="styles.css"> <!-- Подключение CSS -->
 </head>
 <body>
-    <div class="game-container">
-        <canvas id="gameCanvas"></canvas>
-        <div id="selectionPanel" class="selection-panel">
-            <div class="selection-options"></div>
-        </div>
-        <div id="resourcesPanel" class="resources-panel">
-            <div class="resource-item">
-                <div class="resource-icon gold-icon"></div>
-                <span id="goldAmount">0</span>
+    <div class="game-container"> <!-- Главный контейнер игры -->
+        <canvas id="gameCanvas"></canvas> <!-- Канвас для отрисовки карты -->
+        <div class="interface-container"> <!-- Контейнер для интерфейса -->
+            <div id="resourcesPanel" class="resources-panel"> <!-- Панель ресурсов -->
+                <div class="resource-item"> <!-- Элемент ресурса (золото) -->
+                    <div class="resource-icon gold-icon"></div> <!-- Иконка золота -->
+                    <span id="goldAmount">0</span> <!-- Количество золота -->
+                </div>
+                <div class="resource-item"> <!-- Элемент ресурса (дерево) -->
+                    <div class="resource-icon wood-icon"></div> <!-- Иконка дерева -->
+                    <span id="woodAmount">0</span> <!-- Количество дерева -->
+                </div>
+                <div class="unit-limit-panel">Units: 1/10</div> <!-- Панель лимита юнитов -->
             </div>
-            <div class="resource-item">
-                <div class="resource-icon wood-icon"></div>
-                <span id="woodAmount">0</span>
+            <div id="miniMapContainer" class="mini-map-container"></div> <!-- Контейнер для миникарты -->
+            <div id="commandPanel" class="command-panel"> <!-- Панель команд -->
+                <button class="command-button building-normal"></button> <!-- Кнопка для строительства обычного здания -->
+                <button class="command-button building-defense"></button> <!-- Кнопка для строительства оборонительного здания -->
+                <button class="command-button unit-infantry"></button> <!-- Кнопка для создания пехоты -->
+                <button class="command-button unit-vehicle"></button> <!-- Кнопка для создания техники -->
+                <button class="command-button unit-air"></button> <!-- Кнопка для создания авиации -->
             </div>
-        </div>
-        <div id="miniMapContainer" class="mini-map-container"></div>
-        <div id="commandPanel" class="command-panel">
-            <button class="command-button building-normal"></button>
-            <button class="command-button building-defense"></button>
-            <button class="command-button unit-infantry"></button>
-            <button class="command-button unit-vehicle"></button>
-            <button class="command-button unit-air"></button>
+            <div id="selectionPanel" class="selection-panel"> <!-- Панель выбора (появляется под командной панелью) -->
+                <div class="selection-options"></div> <!-- Контейнер для опций выбора -->
+            </div>
         </div>
     </div>
-    <script type="module" src="map.js"></script>
-    <script type="module" src="minimap.js"></script>
-    <script type="module" src="camera.js"></script>
-    <script type="module" src="units.js"></script>
-    <script type="module" src="buildings.js"></script>
-    <script type="module" src="fog.js"></script>
-    <script type="module" src="game.js"></script>
+    <script type="module" src="map.js"></script> <!-- Подключение скрипта для карты -->
+    <script type="module" src="minimap.js"></script> <!-- Подключение скрипта для миникарты -->
+    <script type="module" src="camera.js"></script> <!-- Подключение скрипта для камеры -->
+    <script type="module" src="units.js"></script> <!-- Подключение скрипта для юнитов -->
+    <script type="module" src="buildings.js"></script> <!-- Подключение скрипта для зданий -->
+    <script type="module" src="fog.js"></script> <!-- Подключение скрипта для тумана войны -->
+    <script type="module" src="game.js"></script> <!-- Подключение основного скрипта игры -->
 </body>
 </html>

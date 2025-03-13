@@ -1,263 +1,252 @@
 body {
-    margin: 0;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-    overflow: hidden;
-    font-family: 'Segoe UI', 'Arial', sans-serif;
+    margin: 0; /* Убирает внешние отступы у body */
+    padding: 0; /* Убирает внутренние отступы у body */
+    display: flex; /* Использует flexbox для центрирования содержимого */
+    justify-content: center; /* Центрирует содержимое по горизонтали */
+    align-items: center; /* Центрирует содержимое по вертикали */
+    min-height: 100vh; /* Минимальная высота body равна высоте viewport */
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); /* Градиентный фон от тёмного к чуть светлее */
+    overflow: hidden; /* Скрывает прокрутку */
+    font-family: 'Segoe UI', 'Arial', sans-serif; /* Задаёт шрифт */
 }
 
 .game-container {
-    position: relative;
-    max-width: 100vw;
-    max-height: 100vh;
-    overflow: hidden;
-    background: rgba(26, 26, 26, 0.95);
-    border-radius: 10px;
-    padding: 20px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    position: relative; /* Делает контейнер позиционированным для абсолютного размещения дочерних элементов */
+    width: 100vw; /* Ширина равна ширине viewport */
+    height: 100vh; /* Высота равна высоте viewport */
+    overflow: hidden; /* Скрывает прокрутку внутри контейнера */
+    background: rgba(26, 26, 26, 0.95); /* Полупрозрачный тёмный фон */
+    border-radius: 10px; /* Скругляет углы контейнера */
+    padding: 20px; /* Внутренний отступ */
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); /* Тень контейнера */
+    display: flex; /* Использует flexbox для дочерних элементов */
+    justify-content: flex-start; /* Выравнивание дочерних элементов слева */
+    align-items: flex-start; /* Выравнивание дочерних элементов сверху */
 }
 
 #gameCanvas {
-    border: 3px solid rgba(74, 74, 74, 0.8);
-    border-radius: 8px;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
-    max-width: 90vw;
-    max-height: 90vh;
-    width: 1280px;
-    height: 960px;
-    z-index: 1;
+    border: 3px solid rgba(74, 74, 74, 0.8); /* Рамка канваса */
+    border-radius: 8px; /* Скругляет углы канваса */
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.4); /* Тень канваса */
+    width: calc(100vw - 340px); /* Ширина канваса: вся ширина минус ширина интерфейса (300px + отступы 20px + 20px) */
+    height: 90vh; /* Высота канваса: 90% высоты viewport */
+    max-height: 960px; /* Максимальная высота канваса */
+    z-index: 1; /* Уровень наложения канваса (ниже интерфейса) */
 }
 
 .ui-panel {
-    display: none;
+    display: none; /* Скрывает панели интерфейса по умолчанию (пока не активированы) */
 }
 
 .ui-panel div {
-    margin: 5px 0;
-    font-weight: 500;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    margin: 5px 0; /* Отступы для дочерних div внутри панелей */
+    font-weight: 500; /* Полужирный шрифт для текста в панелях */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); /* Тень текста для улучшения читаемости */
 }
 
 .ui-panel span {
-    color: #4CAF50;
-    font-weight: bold;
-    margin-left: 5px;
+    color: #4CAF50; /* Цвет текста для чисел (ресурсов) - зелёный */
+    font-weight: bold; /* Полужирный шрифт */
+    margin-left: 5px; /* Отступ слева от иконки ресурса */
 }
 
-
-.command-panel {
-    position: absolute;
-    top: 330px;
-    right: 50px;
-    width: 220px;
-    background: rgba(0, 0, 0, 0.85);
-    padding: 8px;
-    border-radius: 8px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    border: 2px solid rgba(74, 74, 74, 0.6);
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    gap: 6px;
-    backdrop-filter: blur(5px);
-    z-index: 20;
-}
-
-.command-button {
-    width: 35px;
-    height: 35px;
-    background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
-    border: 2px solid rgba(74, 74, 74, 0.8);
-    border-radius: 3px;
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: all 0.3s ease;
-    position: relative;
-    font-size: 0;
-    color: transparent;
-}
-
-.command-button::before {
-    content: '';
-    position: absolute;
-    width: 28px;
-    height: 28px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.3));
-}
-
-.building-normal { 
-    background: linear-gradient(145deg, #2d3436, #222);
-    border-color: #3d4446;
-}
-.building-normal::before {
-    content: '';
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dfe6e9' stroke-width='2'%3E%3Cpath d='M3 21h18M5 21V8l7-5 7 5v13'/%3E%3Cpath d='M9 21v-6h6v6'/%3E%3C/svg%3E");
-}
-
-.building-defense { 
-    background: linear-gradient(145deg, #2d3436, #222);
-    border-color: #3d4446;
-}
-.building-defense::before {
-    content: '';
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2381ecec' stroke-width='2'%3E%3Cpath d='M12 2L3 7v9c0 5 9 6 9 6s9-1 9-6V7l-9-5z'/%3E%3C/svg%3E");
-}
-
-.unit-infantry { 
-    background: linear-gradient(145deg, #2d3436, #222);
-    border-color: #3d4446;
-}
-.unit-infantry::before {
-    content: '';
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fd79a8' stroke-width='2'%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3Cpath d='M8 21v-8h8v8M12 13v8'/%3E%3C/svg%3E");
-}
-
-.unit-vehicle { 
-    background: linear-gradient(145deg, #2d3436, #222);
-    border-color: #3d4446;
-}
-.unit-vehicle::before {
-    content: '';
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2374b9ff' stroke-width='2'%3E%3Cpath d='M4 18h16M4 14h16M8 14v4M16 14v4'/%3E%3Cpath d='M2 14h20v-3H2zM12 11V7l8-2v6'/%3E%3C/svg%3E");
-}
-
-.unit-air { 
-    background: linear-gradient(145deg, #2d3436, #222);
-    border-color: #3d4446;
-}
-.unit-air::before {
-    content: '';
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffeaa7' stroke-width='2'%3E%3Cpath d='M12 15l-3-3H4l8-8 8 8h-5l-3 3zm-3 4h6m-3-4v4'/%3E%3C/svg%3E");
-}
-
-.command-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-    background: linear-gradient(145deg, #3d4446, #2d3436);
-}
-
-.command-button:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-}
-
-@keyframes glow {
-    0% { box-shadow: 0 0 5px rgba(255, 255, 255, 0.1); }
-    50% { box-shadow: 0 0 15px rgba(255, 255, 255, 0.2); }
-    100% { box-shadow: 0 0 5px rgba(255, 255, 255, 0.1); }
-}
-
-.command-button:hover {
-    animation: glow 1.5s infinite;
-}
-
-.selection-panel {
-    position: absolute;
-    top: 390px; /* Располагаем под командной панелью */
-    right: 50px;
-    width: 220px;
-    background: rgba(0, 0, 0, 0.85);
-    border: 2px solid rgba(74, 74, 74, 0.8);
-    border-radius: 8px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(5px);
-    z-index: 30;
-    display: none;
-    padding: 8px;
-}
-
-.selection-panel.active {
-    display: flex;
-}
-
-.selection-options {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 6px;
-    width: 100%;
-}
-
-.selection-option {
-    width: 35px;
-    height: 35px;
-    padding: 0;
-    background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
-    border: 2px solid rgba(74, 74, 74, 0.8);
-    border-radius: 6px;
-    cursor: pointer;
-    position: relative;
-}
-
-.selection-option:hover::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.9);
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    white-space: nowrap;
-    z-index: 100;
+.interface-container {
+    position: absolute; /* Абсолютное позиционирование контейнера интерфейса */
+    right: 10px; /* Отступ справа */
+    top: 20px; /* Отступ сверху */
+    display: flex; /* Flexbox для дочерних элементов */
+    flex-direction: column; /* Дочерние элементы выстраиваются в столбец */
+    gap: 10px; /* Расстояние между дочерними элементами */
+    width: 300px; /* Фиксированная ширина интерфейса */
+    z-index: 20; /* Уровень наложения выше канваса */
 }
 
 .resources-panel {
-    position: absolute;
-    top: 20px;
-    right: 330px; /* Располагаем слева от миникарты */
-    background: rgba(0, 0, 0, 0.85);
-    border: 2px solid rgba(74, 74, 74, 0.8);
-    border-radius: 8px;
-    padding: 8px;
-    display: flex;
-    gap: 10px;
-    align-items: center;
+    background: rgba(0, 0, 0, 0.85); /* Полупрозрачный тёмный фон */
+    border: 2px solid rgba(74, 74, 74, 0.8); /* Рамка панели ресурсов */
+    border-radius: 4px; /* Скругляет углы */
+    padding: 8px; /* Внутренний отступ */
+    display: flex; /* Flexbox для содержимого */
+    flex-direction: column; /* Элементы внутри выстраиваются в столбец */
+    gap: 5px; /* Расстояние между элементами */
+    align-items: flex-start; /* Выравнивание элементов слева */
 }
 
-/* Миникарта, НЕ ТРОГАТЬ РАЗМЕРЫ, ВСЁ ИДЕАЛЬНО ВЫСТАВЛЕНО */
+.unit-limit-panel {
+    background: rgba(0, 0, 0, 0.85); /* Полупрозрачный тёмный фон */
+    border: 2px solid rgba(74, 74, 74, 0.8); /* Рамка панели лимита юнитов */
+    border-radius: 2px; /* Скругляет углы */
+    padding: 8px; /* Внутренний отступ */
+    color: white; /* Цвет текста - белый */
+    font-size: 14px; /* Размер шрифта */
+}
+
 .mini-map-container {
-    position: absolute;
-    top: 23px;
-    right: 23px;
-    width: 300px; /* Соответствует miniMapSize */
-    height: 300px; /* Соответствует miniMapSize */
-    background: rgba(0, 0, 0, 0.9);
-    border: 2px solid rgba(255, 255, 255, 0.5);
-    border-radius: 8px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    z-index: 10;
+    width: 300px; /* Ширина миникарты */
+    height: 300px; /* Высота миникарты */
+    background: rgba(0, 0, 0, 0.9); /* Полупрозрачный тёмный фон */
+    border: 2px solid rgba(255, 255, 255, 0.5); /* Рамка миникарты */
+    border-radius: 8px; /* Скругляет углы */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); /* Тень миникарты */
+    z-index: 10; /* Уровень наложения ниже панелей управления */
+}
+
+.command-panel {
+    width: 280px; /* Ширина панели команд */
+    background: rgba(0, 0, 0, 0.85); /* Полупрозрачный тёмный фон */
+    padding: 8px; /* Внутренний отступ */
+    border-radius: 8px; /* Скругляет углы */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); /* Тень панели */
+    border: 2px solid rgba(74, 74, 74, 0.6); /* Рамка панели */
+    display: flex; /* Flexbox для кнопок */
+    flex-direction: row; /* Кнопки выстраиваются в ряд */
+    justify-content: space-between; /* Равномерное распределение кнопок */
+    gap: 6px; /* Расстояние между кнопками */
+    backdrop-filter: blur(5px); /* Эффект размытия фона */
+    z-index: 20; /* Уровень наложения выше миникарты */
+}
+
+.command-button {
+    width: 50px; /* Ширина кнопки */
+    height: 50px; /* Высота кнопки */
+    background: linear-gradient(145deg, #2a2a2a, #1a1a1a); /* Градиентный фон кнопки */
+    border: 2px solid rgba(74, 74, 74, 0.8); /* Рамка кнопки */
+    border-radius: 5px; /* Скругляет углы кнопки */
+    cursor: pointer; /* Курсор в виде указателя при наведении */
+    display: flex; /* Flexbox для центрирования содержимого */
+    justify-content: center; /* Центрирование по горизонтали */
+    align-items: center; /* Центрирование по вертикали */
+    transition: all 0.3s ease; /* Плавный переход для анимаций */
+    position: relative; /* Позиционирование для псевдоэлементов */
+    font-size: 0; /* Скрывает текст внутри кнопки */
+    color: transparent; /* Делает текст прозрачным */
+}
+
+.command-button::before {
+    content: ''; /* Псевдоэлемент для отображения иконки */
+    position: absolute; /* Абсолютное позиционирование внутри кнопки */
+    width: 40px; /* Ширина иконки */
+    height: 40px; /* Высота иконки */
+    background-size: contain; /* Сохраняет пропорции иконки */
+    background-repeat: no-repeat; /* Не повторяет иконку */
+    background-position: center; /* Центрирует иконку */
+    filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.3)); /* Тень иконки */
+}
+
+.building-normal::before {
+    content: ''; /* Псевдоэлемент для иконки обычного здания */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dfe6e9' stroke-width='2'%3E%3Cpath d='M3 21h18M5 21V8l7-5 7 5v13'/%3E%3Cpath d='M9 21v-6h6v6'/%3E%3C/svg%3E"); /* SVG-иконка здания */
+}
+
+.building-defense::before {
+    content: ''; /* Псевдоэлемент для иконки оборонительного здания */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2381ecec' stroke-width='2'%3E%3Cpath d='M12 2L3 7v9c0 5 9 6 9 6s9-1 9-6V7l-9-5z'/%3E%3C/svg%3E"); /* SVG-иконка оборонительного здания */
+}
+
+.unit-infantry::before {
+    content: ''; /* Псевдоэлемент для иконки пехоты */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fd79a8' stroke-width='2'%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3Cpath d='M8 21v-8h8v8M12 13v8'/%3E%3C/svg%3E"); /* SVG-иконка пехоты */
+}
+
+.unit-vehicle::before {
+    content: ''; /* Псевдоэлемент для иконки техники */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2374b9ff' stroke-width='2'%3E%3Cpath d='M4 18h16M4 14h16M8 14v4M16 14v4'/%3E%3Cpath d='M2 14h20v-3H2zM12 11V7l8-2v6'/%3E%3C/svg%3E"); /* SVG-иконка техники */
+}
+
+.unit-air::before {
+    content: ''; /* Псевдоэлемент для иконки авиации */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffeaa7' stroke-width='2'%3E%3Cpath d='M12 15l-3-3H4l8-8 8 8h-5l-3 3zm-3 4h6m-3-4v4'/%3E%3C/svg%3E"); /* SVG-иконка авиации */
+}
+
+.command-button:hover {
+    transform: translateY(-2px); /* Поднимает кнопку при наведении */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); /* Увеличивает тень при наведении */
+    background: linear-gradient(145deg, #3d4446, #2d3436); /* Меняет градиент фона при наведении */
+}
+
+.command-button:active {
+    transform: translateY(0); /* Возвращает кнопку в исходное положение при клике */
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); /* Уменьшает тень при клике */
+}
+
+@keyframes glow {
+    0% { box-shadow: 0 0 5px rgba(255, 255, 255, 0.1); } /* Начало анимации свечения */
+    50% { box-shadow: 0 0 15px rgba(255, 255, 255, 0.2); } /* Пик свечения */
+    100% { box-shadow: 0 0 5px rgba(255, 255, 255, 0.1); } /* Конец анимации свечения */
+}
+
+.command-button:hover {
+    animation: glow 1.5s infinite; /* Запускает анимацию свечения при наведении */
+}
+
+.selection-panel {
+    width: 280px; /* Ширина панели выбора */
+    background: rgba(0, 0, 0, 0.85); /* Полупрозрачный тёмный фон */
+    border: 2px solid rgba(74, 74, 74, 0.8); /* Рамка панели */
+    border-radius: 8px; /* Скругляет углы */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); /* Тень панели */
+    backdrop-filter: blur(5px); /* Эффект размытия фона */
+    z-index: 30; /* Уровень наложения выше других элементов */
+    display: none; /* Скрывает панель по умолчанию */
+    padding: 8px; /* Внутренний отступ */
+}
+
+.selection-panel.active {
+    display: flex; /* Показывает панель, если добавлен класс active */
+}
+
+.selection-options {
+    display: flex; /* Flexbox для опций выбора */
+    flex-direction: row; /* Опции выстраиваются в ряд */
+    flex-wrap: wrap; /* Перенос опций на следующую строку при необходимости */
+    gap: 6px; /* Расстояние между опциями */
+    width: 100%; /* Ширина контейнера опций */
+}
+
+.selection-option {
+    width: 50px; /* Ширина кнопки опции */
+    height: 50px; /* Высота кнопки опции */
+    padding: 0; /* Убирает внутренние отступы */
+    background: linear-gradient(145deg, #2a2a2a, #1a1a1a); /* Градиентный фон */
+    border: 2px solid rgba(74, 74, 74, 0.8); /* Рамка кнопки */
+    border-radius: 5px; /* Скругляет углы */
+    cursor: pointer; /* Курсор в виде указателя */
+    position: relative; /* Позиционирование для псевдоэлементов */
+}
+
+.selection-option:hover::after {
+    content: attr(data-tooltip); /* Показывает подсказку из атрибута data-tooltip */
+    position: absolute; /* Абсолютное позиционирование подсказки */
+    bottom: 100%; /* Расположение над кнопкой */
+    left: 50%; /* Центрирование по горизонтали */
+    transform: translateX(-50%); /* Сдвиг для точного центрирования */
+    background: rgba(0, 0, 0, 0.9); /* Фон подсказки */
+    color: white; /* Цвет текста подсказки */
+    padding: 4px 8px; /* Отступы внутри подсказки */
+    border-radius: 4px; /* Скругляет углы подсказки */
+    font-size: 12px; /* Размер шрифта подсказки */
+    white-space: nowrap; /* Текст в одну строку */
+    z-index: 100; /* Уровень наложения подсказки */
 }
 
 .resource-item {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    color: white;
-    font-size: 14px;
+    display: flex; /* Flexbox для элемента ресурса */
+    align-items: center; /* Центрирование по вертикали */
+    gap: 5px; /* Расстояние между иконкой и текстом */
+    color: white; /* Цвет текста - белый */
+    font-size: 14px; /* Размер шрифта */
 }
 
 .resource-icon {
-    width: 20px;
-    height: 20px;
-    background-size: contain;
+    width: 20px; /* Ширина иконки ресурса */
+    height: 20px; /* Высота иконки ресурса */
+    background-size: contain; /* Сохраняет пропорции иконки */
 }
 
 .gold-icon {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23FFD700'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23FFD700'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E"); /* SVG-иконка золота */
 }
 
 .wood-icon {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238B4513'%3E%3Cpath d='M12 3l6 6-6 6-6-6z'/%3E%3Cpath d='M12 15v6M8 21h8'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238B4513'%3E%3Cpath d='M12 3l6 6-6 6-6-6z'/%3E%3Cpath d='M12 15v6M8 21h8'/%3E%3C/svg%3E"); /* SVG-иконка дерева */
 }

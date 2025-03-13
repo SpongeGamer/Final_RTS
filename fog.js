@@ -5,46 +5,42 @@ import { buildings } from './buildings.js';
 
 let fog = Array.from({ length: mapHeight }, () => Array(mapWidth).fill(true)); // true — скрыто, false — видно
 
-function updateFog() {
-    // Сбрасываем текущую видимость, но сохраняем разведанные области
+function updateFog(initial = false) {
+    // Сбрасываем текущую видимость и туман
     for (let y = 0; y < mapHeight; y++) {
         for (let x = 0; x < mapWidth; x++) {
             visibility[y][x] = false; // Сначала все клетки невидимы
+            fog[y][x] = true; // Сбрасываем туман
         }
     }
 
-    // Обновляем видимость вокруг юнитов
+    // Обновляем видимость вокруг юнитов игрока 1
     units.forEach(unit => {
-        if (unit.player === 1) { // Только для юнитов первого игрока
+        if (unit.player === 1) {
             const range = unit.visionRange;
             const centerX = unit.x;
             const centerY = unit.y;
-            
             for (let y = centerY - range; y <= centerY + range; y++) {
                 for (let x = centerX - range; x <= centerX + range; x++) {
                     if (y >= 0 && y < mapHeight && x >= 0 && x < mapWidth) {
                         const dx = x - centerX;
                         const dy = y - centerY;
                         const distance = Math.sqrt(dx * dx + dy * dy);
-                        
                         if (distance <= range) {
-                            // Проверяем линию видимости
                             let hasLineOfSight = true;
                             const steps = Math.max(Math.abs(dx), Math.abs(dy));
                             if (steps > 0) {
                                 for (let i = 1; i <= steps; i++) {
                                     const checkX = Math.round(centerX + (dx * i) / steps);
                                     const checkY = Math.round(centerY + (dy * i) / steps);
-                                    // Проверяем препятствия
                                     if (checkX >= 0 && checkX < mapWidth && checkY >= 0 && checkY < mapHeight) {
-                                        // Здесь можно добавить проверку препятствий, если они есть в игре
+                                        // Проверка препятствий (если нужно)
                                     }
                                 }
                             }
-                            
                             if (hasLineOfSight) {
-                                visibility[y][x] = true; // Клетка видима
-                                exploredMap[y][x] = true; // Клетка разведана
+                                visibility[y][x] = true;
+                                exploredMap[y][x] = true;
                             }
                         }
                     }
@@ -53,20 +49,18 @@ function updateFog() {
         }
     });
 
-    // Обновляем видимость вокруг зданий
+    // Обновляем видимость вокруг зданий игрока 1 (включая базу) всегда
     buildings.forEach(building => {
         if (building.player === 1) {
-            const range = 5;
+            const range = 5; // Радиус видимости для зданий
             const centerX = building.x;
             const centerY = building.y;
-            
             for (let y = centerY - range; y <= centerY + range; y++) {
                 for (let x = centerX - range; x <= centerX + range; x++) {
                     if (y >= 0 && y < mapHeight && x >= 0 && x < mapWidth) {
                         const dx = x - centerX;
                         const dy = y - centerY;
                         const distance = Math.sqrt(dx * dx + dy * dy);
-                        
                         if (distance <= range) {
                             visibility[y][x] = true;
                             exploredMap[y][x] = true;
@@ -76,11 +70,18 @@ function updateFog() {
             }
         }
     });
+
+    // Синхронизируем массив fog с visibility
+    for (let y = 0; y < mapHeight; y++) {
+        for (let x = 0; x < mapWidth; x++) {
+            fog[y][x] = !visibility[y][x]; // true если не видно, false если видно
+        }
+    }
 }
 
 function drawFog(camera) {
-    const visibleWidth = Math.floor(camera.width * camera.zoom);
-    const visibleHeight = Math.floor(camera.height * camera.zoom);
+    const visibleWidth = Math.floor(camera.width);
+    const visibleHeight = Math.floor(camera.height);
     const startX = Math.floor(camera.x);
     const endX = Math.min(startX + visibleWidth + 1, mapWidth);
     const startY = Math.floor(camera.y);

@@ -1,19 +1,19 @@
-// camera.js
-import { tileSize, mapWidth, mapHeight } from './map.js';
+import { tileSize, mapWidth, mapHeight, base1X, base1Y } from './map.js';
 
 const canvas = document.getElementById('gameCanvas');
 
 let camera = {
-    x: 0,
-    y: 0,
-    width: 20,
-    height: 15,
+    x: Math.max(0, Math.min(mapWidth - (canvas.width / tileSize) / 1.5, 2 - 5)),
+    y: Math.max(0, Math.min(mapHeight - (canvas.height / tileSize) / 1.5, 2 - 5)),
+    width: canvas.width / tileSize,
+    height: canvas.height / tileSize,
     zoom: 1.5
 };
 
-// Центрируем камеру на начальной базе
-camera.x = 0;
-camera.y = 0;
+function updateCameraBounds() {
+    camera.width = canvas.width / (tileSize * camera.zoom);
+    camera.height = canvas.height / (tileSize * camera.zoom);
+}
 
 function handleCameraMovement(drawCallback) {
     const speed = 5;
@@ -25,7 +25,7 @@ function handleCameraMovement(drawCallback) {
                 break;
             case 'arrowdown':
             case 's':
-                camera.y = Math.min(mapHeight - camera.height * camera.zoom, camera.y + speed / camera.zoom);
+                camera.y = Math.min(mapHeight - camera.height, camera.y + speed / camera.zoom);
                 break;
             case 'arrowleft':
             case 'a':
@@ -33,10 +33,10 @@ function handleCameraMovement(drawCallback) {
                 break;
             case 'arrowright':
             case 'd':
-                camera.x = Math.min(mapWidth - camera.width * camera.zoom, camera.x + speed / camera.zoom);
+                camera.x = Math.min(mapWidth - camera.width, camera.x + speed / camera.zoom);
                 break;
         }
-        drawCallback(); // Вызываем переданную функцию для перерисовки
+        drawCallback();
     });
 
     canvas.addEventListener('wheel', (e) => {
@@ -47,12 +47,24 @@ function handleCameraMovement(drawCallback) {
         const mouseY = (e.clientY - canvas.offsetTop) / (tileSize * oldZoom);
 
         camera.zoom = Math.max(0.5, Math.min(2.0, camera.zoom - e.deltaY * zoomSpeed * 0.001));
+        updateCameraBounds();
         const dx = mouseX - camera.width / 2;
         const dy = mouseY - camera.height / 2;
-        camera.x = Math.max(0, Math.min(mapWidth - camera.width * camera.zoom, camera.x + dx * (1 - camera.zoom / oldZoom)));
-        camera.y = Math.max(0, Math.min(mapHeight - camera.height * camera.zoom, camera.y + dy * (1 - camera.zoom / oldZoom)));
-        drawCallback(); // Вызываем переданную функцию для перерисовки
+        camera.x = Math.max(0, Math.min(mapWidth - camera.width, camera.x + dx * (1 - camera.zoom / oldZoom)));
+        camera.y = Math.max(0, Math.min(mapHeight - camera.height, camera.y + dy * (1 - camera.zoom / oldZoom)));
+        drawCallback();
     });
+
+    window.addEventListener('resize', () => {
+        canvas.width = Math.min(1280, window.innerWidth - 400);
+        canvas.height = Math.min(960, window.innerHeight - 100);
+        updateCameraBounds();
+        drawCallback();
+    });
+
+    canvas.width = Math.min(1280, window.innerWidth - 400);
+    canvas.height = Math.min(960, window.innerHeight - 100);
+    updateCameraBounds();
 }
 
-export { camera, handleCameraMovement };
+export { camera, handleCameraMovement, updateCameraBounds };

@@ -1,10 +1,9 @@
-// game.js
-import { tileSize, mapWidth, mapHeight, tileTypes, map, visibility, chunks, generateMap, drawMap, resources, resourceTypes } from './map.js';
-import { drawMiniMap, miniMapSize, miniTileSize } from './minimap.js';
+import { tileSize, mapWidth, mapHeight, map, visibility, generateMap, drawMap, resources } from './map.js';
+import { drawMiniMap } from './minimap.js';
 import { camera, handleCameraMovement } from './camera.js';
-import { units, unitCount, moveUnit, drawUnits, updateVisibility, startUnitAnimation, drawPlayerResources, playerResources, createWorker, selectUnit, deselectAllUnits, selectedUnits, sendWorkerToResource, selectUnitsInRect } from './units.js';
-import { buildings, buildingCount, placeBuilding, drawBuildings } from './buildings.js';
-import { fog, updateFog, drawFog } from './fog.js';
+import { units, moveUnit, drawUnits, updateVisibility, startUnitAnimation, drawPlayerResources, playerResources, createWorker, createInfantry, selectUnit, deselectAllUnits, selectedUnits, sendWorkerToResource, selectUnitsInRect, initializeUnits } from './units.js';
+import { buildings, placeBuilding, drawBuildings } from './buildings.js';
+import { updateFog, drawFog } from './fog.js';
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -17,7 +16,7 @@ window.previewUnit = null;
 
 let lastTime = performance.now();
 let lastVisibilityUpdate = 0;
-const VISIBILITY_UPDATE_INTERVAL = 100; // Обновлять видимость каждые 100мс
+const VISIBILITY_UPDATE_INTERVAL = 100;
 
 async function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -31,11 +30,9 @@ async function draw() {
 
 async function init() {
     await generateMap();
-    units[0].x = 2;
-    units[0].y = 2;
-    units.splice(1, 1);
+    initializeUnits();
     await updateVisibility();
-    await updateFog();
+    await updateFog(true);
     handleCameraMovement(draw);
     setupCommandButtons();
     functions.startGameLoop();
@@ -43,15 +40,12 @@ async function init() {
 
 function setupCommandButtons() {
     const commandButtons = document.querySelectorAll('.command-button');
-    let buildingDelay = 3000; // 3 секунды на строительство
-    let unitDelay = 2000; // 2 секунды на создание юнита
 
     function updateResourceDisplay() {
         document.getElementById('goldAmount').textContent = playerResources[1].gold;
         document.getElementById('woodAmount').textContent = playerResources[1].wood;
     }
 
-    // Обработка кликов по кнопкам панели команд
     commandButtons.forEach(button => {
         button.addEventListener('click', (e) => {
             const type = e.target.className.split(' ')[1];
@@ -103,8 +97,8 @@ function setupCommandButtons() {
                             } else {
                                 isPlacingUnit = true;
                                 selectedButton = button;
-                                window.selectedUnitType = option.type; // Сохраняем выбранный тип юнита
-                                window.selectedUnitCost = option.cost; // Сохраняем стоимость
+                                window.selectedUnitType = option.type;
+                                window.selectedUnitCost = option.cost;
                             }
                         }
                     });
@@ -117,12 +111,11 @@ function setupCommandButtons() {
         });
     });
 
-    // Добавляем обработку кликов мыши для выделения юнитов
     let isMouseDown = false;
     let selectionStart = null;
 
     canvas.addEventListener('mousedown', async (e) => {
-        if (e.button === 0) { // ЛКМ
+        if (e.button === 0) {
             if (isPlacingUnit && window.selectedUnitType && window.selectedUnitCost) {
                 const rect = canvas.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
@@ -142,16 +135,12 @@ function setupCommandButtons() {
                     if (currentType === 'worker') {
                         const unit = await createWorker(1, tileX, tileY);
                         if (unit) {
-                            playerResources[1].gold -= currentCost.gold;
-                            playerResources[1].wood -= currentCost.wood;
-                            updateResourceDisplay();
+                                        updateResourceDisplay();
                         }
                     } else if (currentType === 'infantry') {
                         const unit = await createInfantry(1, tileX, tileY);
                         if (unit) {
-                            playerResources[1].gold -= currentCost.gold;
-                            playerResources[1].wood -= currentCost.wood;
-                            updateResourceDisplay();
+                                           updateResourceDisplay();
                         }
                     }
 
@@ -232,16 +221,14 @@ function setupCommandButtons() {
         }
     });
 
-    // Добавляем функцию обработки правого клика
     function handleRightClick(event) {
         const rect = canvas.getBoundingClientRect();
         const mouseX = event.clientX - rect.left;
         const mouseY = event.clientY - rect.top;
         const { tileX: clickX, tileY: clickY } = functions.screenToTileCoords(mouseX, mouseY);
 
-        // Проверяем границы карты
         if (clickX < 0 || clickX >= mapWidth || clickY < 0 || clickY >= mapHeight) {
-            return; // Игнорируем клик за пределами карты
+            return;
         }
 
         const resource = resources.find(r => r.x === clickX && r.y === clickY);
@@ -261,7 +248,6 @@ function setupCommandButtons() {
         }
     }
 
-    // Отключаем контекстное меню браузера
     canvas.addEventListener('contextmenu', (e) => {
         e.preventDefault();
     });
@@ -289,29 +275,20 @@ const functions = {
     },
 
     screenToTileCoords(mouseX, mouseY) {
-        // Учитываем размер canvas и текущее положение камеры
         const canvas = document.getElementById('gameCanvas');
         const rect = canvas.getBoundingClientRect();
         
-        // Преобразуем координаты мыши относительно реального размера canvas
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
         
         const adjustedX = mouseX * scaleX;
         const adjustedY = mouseY * scaleY;
         
-        // Преобразуем в мировые координаты с учетом масштаба камеры
         const worldX = (adjustedX / camera.zoom) + (camera.x * tileSize);
         const worldY = (adjustedY / camera.zoom) + (camera.y * tileSize);
         
-        // Преобразуем в координаты тайлов
         const tileX = Math.floor(worldX / tileSize);
         const tileY = Math.floor(worldY / tileSize);
-        
-        console.log(`Screen coords: (${mouseX}, ${mouseY})`);
-        console.log(`Adjusted coords: (${adjustedX}, ${adjustedY})`);
-        console.log(`World coords: (${worldX}, ${worldY})`);
-        console.log(`Tile coords: (${tileX}, ${tileY})`);
         
         return {
             tileX: Math.max(0, Math.min(mapWidth - 1, tileX)),
