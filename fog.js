@@ -1,16 +1,18 @@
 // fog.js
-import { mapHeight, mapWidth, visibility, exploredMap } from './map.js';
+import { mapHeight, mapWidth, visibility, exploredMap, map } from './map.js';
 import { units } from './units.js';
 import { buildings } from './buildings.js';
 
 let fog = Array.from({ length: mapHeight }, () => Array(mapWidth).fill(true)); // true — скрыто, false — видно
 
 function updateFog(initial = false) {
-    // Сбрасываем текущую видимость и туман
-    for (let y = 0; y < mapHeight; y++) {
-        for (let x = 0; x < mapWidth; x++) {
-            visibility[y][x] = false; // Сначала все клетки невидимы
-            fog[y][x] = true; // Сбрасываем туман
+    // Сбрасываем текущую видимость и туман только при начальной инициализации
+    if (initial) {
+        for (let y = 0; y < mapHeight; y++) {
+            for (let x = 0; x < mapWidth; x++) {
+                visibility[y][x] = false;
+                fog[y][x] = true;
+            }
         }
     }
 
@@ -34,7 +36,10 @@ function updateFog(initial = false) {
                                     const checkX = Math.round(centerX + (dx * i) / steps);
                                     const checkY = Math.round(centerY + (dy * i) / steps);
                                     if (checkX >= 0 && checkX < mapWidth && checkY >= 0 && checkY < mapHeight) {
-                                        // Проверка препятствий (если нужно)
+                                        if (map[checkY][checkX] === 'water') {
+                                            hasLineOfSight = false;
+                                            break;
+                                        }
                                     }
                                 }
                             }
@@ -49,10 +54,10 @@ function updateFog(initial = false) {
         }
     });
 
-    // Обновляем видимость вокруг зданий игрока 1 (включая базу) всегда
+    // Обновляем видимость вокруг зданий игрока 1
     buildings.forEach(building => {
         if (building.player === 1) {
-            const range = 5; // Радиус видимости для зданий
+            const range = building.type === 'base1' ? 3 : 5; // Разные радиусы для базы и других зданий
             const centerX = building.x;
             const centerY = building.y;
             for (let y = centerY - range; y <= centerY + range; y++) {

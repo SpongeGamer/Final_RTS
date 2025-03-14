@@ -1,6 +1,7 @@
 import { mapWidth, mapHeight, map, visibility, base1X, base1Y, base2X, base2Y, exploredMap } from './map.js';
 import { camera } from './camera.js';
 import { updateFog } from './fog.js'; // Импортируем updateFog вместо updateUnitsVisibility
+import { updateBarracksCount } from './units.js';
 
 let buildings = [
     { x: base1X, y: base1Y, player: 1, type: 'base1' },
@@ -13,7 +14,11 @@ function placeBuilding(x, y, player, type) {
         buildings.push({ x, y, player, type });
         map[y][x] = type;
         buildingCount++;
-        updateFog(); // Заменяем updateUnitsVisibility на updateFog
+        if (type === 'building-normal' && player === 1) { // Предполагаем, что "Казарма" — это building-normal
+            const barracksCount = buildings.filter(b => b.type === 'building-normal' && b.player === 1).length;
+            updateBarracksCount(barracksCount);
+        }
+        updateFog();
     }
 }
 

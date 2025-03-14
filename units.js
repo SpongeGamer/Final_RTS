@@ -1,11 +1,12 @@
-import { mapWidth, mapHeight, map, visibility, exploredMap, resources, base1X, base1Y } from './map.js';
+import { mapWidth, mapHeight, map, visibility, exploredMap } from './map.js';
 import { camera } from './camera.js';
-import { updateFog } from './fog.js'; // Импортируем updateFog вместо updateVisibility
+import { resources, resourceTypes } from './map.js';
+import { updateFog } from './fog.js';
 import { buildings } from './buildings.js';
 
 let units = [
     { 
-        x: 3, y: 3, 
+        x: 2, y: 2, 
         player: 1, 
         visionRange: 3, 
         type: 'infantry', 
@@ -27,11 +28,12 @@ let units = [
         lastVisibilityUpdateY: mapHeight - 3
     }
 ];
-let unitCount = 0;
+let unitCount = 2; // Start with 2 units
 let playerResources = {
     1: { gold: 25, wood: 25 },
     2: { gold: 25, wood: 25 }
 };
+
 let selectedUnits = [];
 
 const UNIT_SPEED = 2;
@@ -39,39 +41,91 @@ const MOVEMENT_THRESHOLD = 0.01;
 let isAnimating = true;
 const RESOURCE_COLLECTION_INTERVAL = 1000;
 
+let unitLimit = 10; // Базовый лимит юнитов
+let barracksCount = 0; // Количество построенных бараков
+
+function updateUnitLimit() {
+    unitLimit = 10 + (barracksCount * 5); // Базовый лимит 10 + 5 за каждый барак
+    console.log(`Unit limit updated to: ${unitLimit}`);
+}
+
+function updateUnitCount() {
+    const currentUnits = units.filter(unit => unit.player === 1).length; // Считаем юниты игрока 1
+    const unitCountElement = document.getElementById('unitCount'); // Элемент для отображения
+    if (unitCountElement) {
+        unitCountElement.textContent = `${currentUnits}/${unitLimit}`;
+    }
+    console.log(`Current units: ${currentUnits}/${unitLimit}`);
+    return { current: currentUnits, limit: unitLimit };
+}
+
+function updateBarracksCount(count) {
+    barracksCount = count;
+    updateUnitLimit();
+    updateUnitCount(); // Обновляем отображение после изменения лимита
+}
+
+function addResources(player, resourceType, amount) {
+    if (playerResources[player] && resourceTypes[resourceType]) {
+        playerResources[player][resourceType] = Math.max(0, (playerResources[player][resourceType] || 0) + amount);
+        console.log(`Added ${amount} ${resourceType} to player ${player}. New total: ${playerResources[player][resourceType]}`);
+        drawPlayerResources(); // Обновляем отображение ресурсов
+        return true;
+    }
+    console.log(`Invalid player or resource type`);
+    return false;
+}
+
 function startUnitAnimation() {
     if (!isAnimating) return;
 
     units.forEach((unit, unitIndex) => {
-        // Рабочий достиг базы с ресурсами
+        let shouldContinue = true;
+
+        // Worker returning to base with resources
         if (unit.type === 'worker' && unit.isReturningToBase && unit.inventory.amount > 0) {
             const distanceToBase = Math.sqrt(Math.pow(unit.x - 2, 2) + Math.pow(unit.y - 2, 2));
-            if (distanceToBase <= 0.5) {
-                deliverResources(unit);
+            if (distanceToBase <= 1.0) {
+                if (deliverResources(unit)) {
+                    unit.isReturningToBase = false;
+                    // Return to the last resource if it still exists
+                    if (unit.lastResourceTarget) {
+                        const resource = resources.find(r => 
+                            r.x === unit.lastResourceTarget.x && 
+                            r.y === unit.lastResourceTarget.y && 
+                            r.amount > 0
+                        );
+                        if (resource) sendWorkerToResource(unit, resource);
+                    }
+                }
+                unit.targetX = undefined;
+                unit.targetY = undefined;
+                unit.path = null;
+                shouldContinue = false;
             } else {
-                moveUnit(unitIndex, 2, 2); // Движение к базе (2,2)
+                moveUnit(unitIndex, 2, 2); // Move toward base
             }
         }
 
-        // Рабочий около ресурса
-        if (unit.type === 'worker' && !unit.isReturningToBase && unit.targetResource) {
+        // Worker collecting resources
+        if (shouldContinue && unit.type === 'worker' && !unit.isReturningToBase && unit.targetResource) {
             const distanceToResource = Math.sqrt(
                 Math.pow(unit.x - unit.targetResource.x, 2) + 
                 Math.pow(unit.y - unit.targetResource.y, 2)
             );
-            
             if (distanceToResource <= 1.5) {
                 const resourceIndex = resources.indexOf(unit.targetResource);
                 if (resourceIndex !== -1) {
                     collectResource(unitIndex, resourceIndex);
                     unit.targetX = unit.x;
                     unit.targetY = unit.y;
+                    shouldContinue = false;
                 }
             }
         }
 
-        // Движение к цели
-        if (unit.targetX !== undefined && unit.targetY !== undefined) {
+        // Movement to target
+        if (shouldContinue && unit.targetX !== undefined && unit.targetY !== undefined) {
             if (!unit.path || unit.path.length === 0) {
                 unit.path = findPath(Math.round(unit.x), Math.round(unit.y), unit.targetX, unit.targetY);
                 if (!unit.path) {
@@ -108,7 +162,7 @@ function startUnitAnimation() {
 
                     if (Math.abs(unit.x - unit.lastVisibilityUpdateX) > 0.5 || 
                         Math.abs(unit.y - unit.lastVisibilityUpdateY) > 0.5) {
-                        updateFog(); // Заменяем updateVisibility на updateFog
+                        updateFog();
                         unit.lastVisibilityUpdateX = unit.x;
                         unit.lastVisibilityUpdateY = unit.y;
                     }
@@ -164,7 +218,7 @@ function findPath(startX, startY, targetX, targetY) {
             let currentNode = current;
             while (cameFrom.has(currentNode)) {
                 const [x, y] = currentNode.split(',').map(Number);
-                path.unshift({x, y});
+                path.unshift({ x, y });
                 currentNode = cameFrom.get(currentNode);
             }
             return path;
@@ -176,17 +230,14 @@ function findPath(startX, startY, targetX, targetY) {
         const [currentX, currentY] = current.split(',').map(Number);
         
         const neighbors = [
-            {x: currentX - 1, y: currentY},
-            {x: currentX + 1, y: currentY},
-            {x: currentX, y: currentY - 1},
-            {x: currentX, y: currentY + 1}
+            { x: currentX - 1, y: currentY },
+            { x: currentX + 1, y: currentY },
+            { x: currentX, y: currentY - 1 },
+            { x: currentX, y: currentY + 1 }
         ];
         
         for (const neighbor of neighbors) {
-            if (neighbor.x < 0 || neighbor.x >= mapWidth || 
-                neighbor.y < 0 || neighbor.y >= mapHeight ||
-                map[neighbor.y][neighbor.x] === 'water' ||
-                checkCollision(neighbor.x, neighbor.y, -1)) {
+            if (neighbor.x < 0 || neighbor.x >= mapWidth || neighbor.y < 0 || neighbor.y >= mapHeight || map[neighbor.y][neighbor.x] === 'water') {
                 continue;
             }
             
@@ -214,8 +265,6 @@ function heuristic(x1, y1, x2, y2) {
     return Math.abs(x1 - x2) + Math.abs(y1 - y2);
 }
 
-// Удаляем функцию updateVisibility, так как теперь используем updateFog
-
 function collectResource(unitIndex, resourceIndex) {
     const unit = units[unitIndex];
     const resource = resources[resourceIndex];
@@ -223,11 +272,13 @@ function collectResource(unitIndex, resourceIndex) {
     if (unit.type === 'worker' && resource && resource.amount > 0 && !unit.isReturningToBase) {
         const currentTime = Date.now();
         if (!unit.lastCollectionTime || currentTime - unit.lastCollectionTime >= RESOURCE_COLLECTION_INTERVAL) {
-            const amountToCollect = Math.min(1, resource.amount);
+            const amountToCollect = Math.min(1, resource.amount, unit.maxInventory - unit.inventory.amount);
             resource.amount -= amountToCollect;
             unit.inventory.resource = resource.type;
             unit.inventory.amount += amountToCollect;
             unit.lastCollectionTime = currentTime;
+
+            console.log(`Collected ${amountToCollect} ${resource.type}, total: ${unit.inventory.amount}`);
 
             if (resource.amount <= 0) {
                 resources.splice(resourceIndex, 1);
@@ -238,7 +289,8 @@ function collectResource(unitIndex, resourceIndex) {
             if (unit.inventory.amount >= 10) {
                 unit.isReturningToBase = true;
                 unit.targetResource = null;
-                moveUnit(unitIndex, 2, 2); // База на (2,2)
+                moveUnit(unitIndex, 2, 2); // Return to base at (2, 2)
+                console.log('Inventory full (10), returning to base');
             }
         }
     }
@@ -246,7 +298,7 @@ function collectResource(unitIndex, resourceIndex) {
 
 function checkCollision(x, y, excludeUnitIndex) {
     for (let i = 0; i < units.length; i++) {
-        if (i !== excludeUnitIndex && Math.round(units[i].x) === x && Math.round(units[i].y) === y) {
+        if (i !== excludeUnitIndex && units[i].x === x && units[i].y === y) {
             return true;
         }
     }
@@ -261,34 +313,22 @@ function isNearBase(x, y) {
         { x: 3, y: 3 }
     ];
 
-    return basePositions.some(pos => 
-        Math.round(x) === pos.x && Math.round(y) === pos.y
-    );
+    return basePositions.some(pos => Math.abs(x - pos.x) <= 1 && Math.abs(y - pos.y) <= 1);
 }
 
 function deliverResources(unit) {
     if (!isNearBase(unit.x, unit.y)) {
+        moveUnitNearBase(units.indexOf(unit));
         return false;
     }
 
     if (unit.inventory.resource && unit.inventory.amount > 0) {
-        playerResources[unit.player][unit.inventory.resource] += unit.inventory.amount;
+        const amountDelivered = unit.inventory.amount;
+        const resourceType = unit.inventory.resource;
+        addResources(unit.player, resourceType, amountDelivered);
         unit.inventory.amount = 0;
         unit.inventory.resource = null;
-        unit.isReturningToBase = false;
-
-        if (unit.lastResourceTarget) {
-            const resource = resources.find(r => 
-                r.x === unit.lastResourceTarget.x && 
-                r.y === unit.lastResourceTarget.y &&
-                r.amount > 0
-            );
-            if (resource) {
-                sendWorkerToResource(unit, resource);
-            } else {
-                unit.lastResourceTarget = null;
-            }
-        }
+        console.log(`Delivered ${amountDelivered} ${resourceType} to base`);
         return true;
     }
     return false;
@@ -319,7 +359,7 @@ function showSpawnAnimation(x, y) {
         y,
         progress: 0,
         maxProgress: 60,
-        particles: Array.from({length: 8}, (_, i) => ({
+        particles: Array.from({ length: 8 }, (_, i) => ({
             angle: (i * Math.PI * 2) / 8,
             radius: 0
         }))
@@ -330,41 +370,37 @@ function showSpawnAnimation(x, y) {
 function isNearBaseForSpawn(x, y) {
     const base = buildings.find(b => b.player === 1 && b.type === 'base1');
     if (!base) return false;
+
     const maxDistance = 2;
     const dx = Math.abs(x - base.x);
     const dy = Math.abs(y - base.y);
-    return dx <= maxDistance && dy <= maxDistance && visibility[y][x];
+    return dx <= maxDistance && dy <= maxDistance;
 }
 
 function hasBarracks(player) {
-    return buildings.some(building => 
-        building.player === player && 
-        building.type === 'barracks'
-    );
+    return buildings.some(building => building.player === player && building.type === 'barracks');
 }
 
-function createWorker(player, x, y) {
-    console.log(`Attempting to spawn worker at (${x}, ${y})`);
-    if (!isNearBaseForSpawn(x, y) || !visibility[y][x]) {
-        console.log("Failed initial spawn conditions");
+async function createWorker(player, x, y) {
+    const { current, limit } = updateUnitCount();
+    if (current >= limit) {
+        console.log('Unit limit reached! Cannot create worker.');
         return null;
     }
+    console.log(`Attempting to create worker at (${x}, ${y}) for player ${player}`);
 
-    if (!playerResources[player] || playerResources[player].gold < 10 || playerResources[player].wood < 0) {
-        console.log("Not enough resources");
-        return null;
-    }
+    if (playerResources[player] && playerResources[player].gold >= 10 && playerResources[player].wood >= 0) {
+        showSpawnAnimation(x, y);
+        console.log('Starting worker spawn animation');
 
-    showSpawnAnimation(x, y);
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                if (!visibility[y][x] || !isNearBaseForSpawn(x, y)) {
+                    console.log('Spawn conditions failed during animation');
+                    resolve(null);
+                    return;
+                }
 
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            if (!visibility[y][x] || !isNearBaseForSpawn(x, y)) {
-                resolve(null);
-                return;
-            }
-
-            if (playerResources[player].gold >= 10) {
                 const unit = {
                     x,
                     y,
@@ -385,34 +421,39 @@ function createWorker(player, x, y) {
                 };
                 units.push(unit);
                 playerResources[player].gold -= 10;
-                updateFog(); // Заменяем updateVisibility на updateFog
-                updateUnitCount();
+                unitCount++;
+                console.log('Worker created successfully');
+                updateFog();
                 resolve(unit);
-            } else {
-                resolve(null);
-            }
-        }, 3000);
-    });
-}
-
-function createInfantry(player, x, y, isCheat = false) {
-    console.log(`Attempting to spawn infantry at (${x}, ${y})`);
-    if (!isNearBaseForSpawn(x, y) || !visibility[y][x]) {
-        console.log("Failed initial spawn conditions for infantry");
+            }, 3000);
+        });
+    } else {
+        console.log('Insufficient resources for worker');
         return null;
     }
+}
 
-    if (!isCheat && units.some(u => u.type === 'infantry' && u.player === player) && !hasBarracks(player)) {
-        console.log("No barracks available for additional infantry");
+async function createInfantry(player, x, y) {
+    const { current, limit } = updateUnitCount();
+    if (current >= limit) {
+        console.log('Unit limit reached! Cannot create infantry.');
+        return null;
+    }
+    console.log(`Attempting to create infantry at (${x}, ${y}) for player ${player}`);
+
+    if (units.some(u => u.type === 'infantry' && u.player === player) && !hasBarracks(player)) {
+        console.log('Barracks required to spawn infantry');
         return null;
     }
 
     if (playerResources[player] && playerResources[player].gold >= 20 && playerResources[player].wood >= 0) {
         showSpawnAnimation(x, y);
+        console.log('Starting infantry spawn animation');
 
         return new Promise((resolve) => {
             setTimeout(() => {
                 if (!visibility[y][x] || !isNearBaseForSpawn(x, y)) {
+                    console.log('Spawn conditions failed during animation');
                     resolve(null);
                     return;
                 }
@@ -433,13 +474,16 @@ function createInfantry(player, x, y, isCheat = false) {
                 };
                 units.push(unit);
                 playerResources[player].gold -= 20;
-                updateFog(); // Заменяем updateVisibility на updateFog
-                updateUnitCount();
+                unitCount++;
+                console.log('Infantry created successfully');
+                updateFog();
                 resolve(unit);
             }, 3000);
         });
+    } else {
+        console.log('Insufficient resources for infantry');
+        return null;
     }
-    return null;
 }
 
 function drawUnits() {
@@ -454,6 +498,7 @@ function drawUnits() {
     ctx.save();
     ctx.scale(camera.zoom, camera.zoom);
 
+    // Draw spawn effects
     spawnEffects.forEach((effect, index) => {
         if (visibility[Math.round(effect.y)][Math.round(effect.x)]) {
             const x = (effect.x - camera.x) * 32;
@@ -482,9 +527,10 @@ function drawUnits() {
         }
     });
 
+    // Draw units
     units.forEach(unit => {
-        if (unit.x >= startX && unit.x < endX && unit.y >= startY && unit.y < endY) {
-            const color = unit.player === 1 ? '#0000FF' : '#FF0000';
+        if (unit.x >= startX && unit.x < endX && unit.y >= startY && unit.y < endY && visibility[unit.y][unit.x]) {
+            const color = unit.player === 1 ? '#0000FF' : (visibility[unit.y][unit.x] ? '#FF0000' : '#666666');
             const currentX = unit.currentX !== undefined ? unit.currentX : unit.x;
             const currentY = unit.currentY !== undefined ? unit.currentY : unit.y;
             const x = (currentX - camera.x) * 32;
@@ -530,7 +576,7 @@ function drawPlayerResources() {
     const goldAmount = document.getElementById('goldAmount');
     const woodAmount = document.getElementById('woodAmount');
     
-    if (goldAmount && woodAmount) {
+    if (goldAmount && woodAmount && playerResources[1]) {
         goldAmount.textContent = playerResources[1].gold;
         woodAmount.textContent = playerResources[1].wood;
     }
@@ -543,10 +589,7 @@ function selectUnit(x, y) {
             const currentX = unit.currentX !== undefined ? unit.currentX : unit.x;
             const currentY = unit.currentY !== undefined ? unit.currentY : unit.y;
             
-            const distance = Math.sqrt(
-                Math.pow(currentX - x, 2) + 
-                Math.pow(currentY - y, 2)
-            );
+            const distance = Math.sqrt(Math.pow(currentX - x, 2) + Math.pow(currentY - y, 2));
             
             if (distance < 0.5) {
                 unit.selected = true;
@@ -594,15 +637,16 @@ function deselectAllUnits() {
 function sendWorkerToResource(unit, resource) {
     if (unit.type === 'worker' && unit.player === 1) {
         unit.targetResource = resource;
-        unit.lastResourceTarget = resource;
+        unit.lastResourceTarget = { x: resource.x, y: resource.y }; // Store coordinates
         unit.isReturningToBase = false;
         moveUnit(units.indexOf(unit), resource.x, resource.y);
+        console.log(`Worker sent to resource at (${resource.x}, ${resource.y})`);
     }
 }
 
 function moveUnit(unitIndex, newX, newY) {
-    if (newX < 0 || newX >= mapWidth || newY < 0 || newY >= mapHeight || 
-        map[newY][newX] === 'water') {
+    if (newX < 0 || newX >= mapWidth || newY < 0 || newY >= mapHeight || map[newY][newX] === 'water') {
+        console.log(`Invalid move target: out of bounds or water at (${newX}, ${newY})`);
         return;
     }
 
@@ -610,9 +654,25 @@ function moveUnit(unitIndex, newX, newY) {
     unit.path = null;
     unit.currentX = unit.x;
     unit.currentY = unit.y;
-    unit.targetX = newX;
-    unit.targetY = newY;
 
+    if (unit.isReturningToBase) {
+        unit.targetX = newX;
+        unit.targetY = newY;
+    } else if (!checkCollision(newX, newY, unitIndex)) {
+        unit.targetX = newX;
+        unit.targetY = newY;
+    } else {
+        const path = findPath(Math.round(unit.x), Math.round(unit.y), newX, newY);
+        if (path && path.length > 0) {
+            const lastStep = path[path.length - 1];
+            unit.targetX = lastStep.x;
+            unit.targetY = lastStep.y;
+        } else {
+            unit.targetX = unit.x;
+            unit.targetY = unit.y;
+        }
+    }
+    
     startUnitAnimation();
 }
 
@@ -623,88 +683,14 @@ function revealFog() {
             exploredMap[y][x] = true;
         }
     }
-    updateFog();
-    console.log("Fog revealed!");
-}
-
-function addResources() {
-    playerResources[1].gold += 100;
-    playerResources[1].wood += 100;
-    drawPlayerResources();
-    console.log("Added 100 Gold and 100 Wood!");
-}
-
-function spawnWorker() {
-    const x = base1X + 1;
-    const y = base1Y + 1;
-    // Проверяем, достаточно ли ресурсов
-    if (playerResources[1].gold < 10) {
-        console.log("Not enough gold to spawn worker! Need 10 gold.");
-        return;
-    }
-    const workerPromise = createWorker(1, x, y);
-    if (workerPromise) {
-        workerPromise.then(unit => {
-            if (unit) console.log("Worker spawned at (" + x + ", " + y + ")");
-            else console.log("Failed to spawn worker!");
-        });
-    } else {
-        console.log("Failed to spawn worker: conditions not met!");
-    }
-}
-
-function spawnInfantry() {
-    const x = base1X + 1;
-    const y = base1Y + 1;
-    // Проверяем, достаточно ли ресурсов
-    if (playerResources[1].gold < 20) {
-        console.log("Not enough gold to spawn infantry! Need 20 gold.");
-        return;
-    }
-    const infantryPromise = createInfantry(1, x, y);
-    if (infantryPromise) {
-        infantryPromise.then(unit => {
-            if (unit) console.log("Infantry spawned at (" + x + ", " + y + ")");
-            else console.log("Failed to spawn infantry!");
-        });
-    } else {
-        console.log("Failed to spawn infantry: conditions not met!");
-    }
-}
-
-document.addEventListener('keydown', (event) => {
-    if (event.key === 'R' || event.key === 'r') {
-        selectedUnits.forEach(unit => {
-            if (unit.type === 'worker' && unit.player === 1) {
-                if (unit.inventory.amount > 0) {
-                    unit.isReturningToBase = true;
-                    moveUnit(units.indexOf(unit), 2, 2);
-                } else if (unit.lastResourceTarget) {
-                    const resource = resources.find(r => 
-                        r.x === unit.lastResourceTarget.x && 
-                        r.y === unit.lastResourceTarget.y &&
-                        r.amount > 0
-                    );
-                    if (resource) {
-                        sendWorkerToResource(unit, resource);
-                    }
-                }
-            }
-        });
-    }
-});
-
-function updateUnitCount() {
-    const unitLimitPanel = document.querySelector('.unit-limit-panel');
-    if (unitLimitPanel) {
-        const playerUnits = units.filter(unit => unit.player === 1).length;
-        unitLimitPanel.textContent = `Units: ${playerUnits}/10`;
-    }
+    updateFog(); // Обновляем туман после снятия
+    console.log('Fog revealed for the entire map');
 }
 
 export { 
-    units, moveUnit, drawUnits, 
+    units, unitCount, moveUnit, drawUnits,  
     startUnitAnimation, drawPlayerResources, playerResources, 
     createWorker, createInfantry, selectUnit, deselectAllUnits, selectedUnits,
-    sendWorkerToResource, selectUnitsInRect, revealFog, addResources, spawnWorker, spawnInfantry, updateUnitCount
+    sendWorkerToResource, selectUnitsInRect, updateUnitCount, updateBarracksCount,
+    addResources, revealFog
 };

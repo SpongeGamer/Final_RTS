@@ -26,6 +26,7 @@ async function draw() {
     drawFog(camera);
     drawMiniMap();
     drawPlayerResources();
+    updateUnitCount(); // Добавляем вызов
 }
 
 async function init() {
@@ -229,24 +230,34 @@ function setupCommandButtons() {
         const mouseX = event.clientX - rect.left;
         const mouseY = event.clientY - rect.top;
         const { tileX: clickX, tileY: clickY } = functions.screenToTileCoords(mouseX, mouseY);
-
+    
         if (clickX < 0 || clickX >= mapWidth || clickY < 0 || clickY >= mapHeight) {
             return;
         }
-
+    
         const resource = resources.find(r => r.x === clickX && r.y === clickY);
         if (resource && selectedUnits.length > 0) {
             selectedUnits.forEach(unit => {
                 if (unit.type === 'worker') {
+                    unit.isReturningToBase = false; // Прерываем возвращение к базе
+                    unit.targetX = undefined;
+                    unit.targetY = undefined;
+                    unit.path = null;
                     sendWorkerToResource(unit, resource);
                 }
             });
         } else if (map[clickY][clickX] !== 'water' && selectedUnits.length > 0) {
             selectedUnits.forEach(unit => {
-                moveUnit(units.indexOf(unit), clickX, clickY);
+                unit.isReturningToBase = false; // Прерываем возвращение к базе
                 unit.targetResource = null;
                 unit.lastResourceTarget = null;
-                unit.isReturningToBase = false;
+                if (unit.type === 'worker' && unit.inventory.amount > 0) {
+                    const distanceToBase = Math.sqrt(Math.pow(unit.x - base1X, 2) + Math.pow(unit.y - base1Y, 2));
+                    if (distanceToBase <= 1.0) {
+                        deliverResources(unit); // Доставляем ресурсы, если юнит у базы
+                    }
+                }
+                moveUnit(units.indexOf(unit), clickX, clickY);
             });
         }
     }
