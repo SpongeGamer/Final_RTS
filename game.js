@@ -1,7 +1,7 @@
 import { tileSize, mapWidth, mapHeight, map, visibility, generateMap, drawMap, resources } from './map.js';
 import { drawMiniMap } from './minimap.js';
 import { camera, handleCameraMovement } from './camera.js';
-import { units, moveUnit, drawUnits, updateVisibility, startUnitAnimation, drawPlayerResources, playerResources, createWorker, createInfantry, selectUnit, deselectAllUnits, selectedUnits, sendWorkerToResource, selectUnitsInRect, initializeUnits } from './units.js';
+import { units, moveUnit, drawUnits, updateVisibility, startUnitAnimation, drawPlayerResources, playerResources, createWorker, createInfantry, selectUnit, deselectAllUnits, selectedUnits, sendWorkerToResource, selectUnitsInRect } from './units.js';
 import { buildings, placeBuilding, drawBuildings } from './buildings.js';
 import { updateFog, drawFog } from './fog.js';
 
@@ -30,7 +30,6 @@ async function draw() {
 
 async function init() {
     await generateMap();
-    initializeUnits();
     await updateVisibility();
     await updateFog(true);
     handleCameraMovement(draw);
