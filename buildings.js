@@ -1,6 +1,6 @@
-import { mapWidth, mapHeight, map, visibility, base1X, base1Y, base2X, base2Y } from './map.js';
+import { mapWidth, mapHeight, map, visibility, base1X, base1Y, base2X, base2Y, exploredMap } from './map.js';
 import { camera } from './camera.js';
-import { updateVisibility as updateUnitsVisibility } from './units.js';
+import { updateFog } from './fog.js'; // Импортируем updateFog вместо updateUnitsVisibility
 
 let buildings = [
     { x: base1X, y: base1Y, player: 1, type: 'base1' },
@@ -13,7 +13,7 @@ function placeBuilding(x, y, player, type) {
         buildings.push({ x, y, player, type });
         map[y][x] = type;
         buildingCount++;
-        updateUnitsVisibility();
+        updateFog(); // Заменяем updateUnitsVisibility на updateFog
     }
 }
 
